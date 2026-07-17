@@ -1,7 +1,7 @@
 {
-  "versionCode": 4013,
-  "versionName": "3.9.13",
-  "url": "https://litter.catbox.moe/ocgw8r.apk",
-  "sha256": "38fa73078a1ac6fe8732e885dc33801f33b9bff7e7dda1e14ce8e765dc9078d4",
-  "notes": "שיפור הקול בלימוד הקריאה ובטעמי המקרא: איטי וברור יותר, בלי חיתוך."
+  "versionCode": 4017,
+  "versionName": "3.9.17",
+  "url": "https://litter.catbox.moe/yinj8a.apk",
+  "sha256": "07c45eb9f57cceca95ce0fa8efa4e354e32058c08a2c2732b9d439347c316b58",
+  "notes": "המכשיר נרשם אוטומטית לניהול מרחוק (דשבורד), והסידור בקול אנושי. כולל חסימת איפוס אוטומטית והקצאת QR."
 }
