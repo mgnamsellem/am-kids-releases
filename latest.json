@@ -1,7 +1,7 @@
 {
-  "versionCode": 4019,
-  "versionName": "3.9.19",
-  "url": "https://litter.catbox.moe/9q20rj.apk",
-  "sha256": "6096d89fbd8b947ceedd713a88b01e3dc3eb0815401bb82baabbf496a0bdf59d",
-  "notes": "עדכון שלא נעצר כשהמסך נכבה, AM Message (צ'אט בטוח עם אנשי קשר מאושרים), וניהול מנויים מהדשבורד."
+  "versionCode": 4020,
+  "versionName": "3.9.20",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/v3.9.20/AM-Kids-3.9.20.apk",
+  "sha256": "3899f87579a4283d3eabf1d5a8635af372509280d1c323b27fc6367448abf343",
+  "notes": "תיקון עדכון שלא נעצר, אבטחת איפוס בלתי-ניתנת-לביטול, AM Message, ודשבורד."
 }
