@@ -1,7 +1,7 @@
 {
-  "versionCode": 4020,
-  "versionName": "3.9.20",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/v3.9.20/AM-Kids-3.9.20.apk",
-  "sha256": "3899f87579a4283d3eabf1d5a8635af372509280d1c323b27fc6367448abf343",
-  "notes": "תיקון עדכון שלא נעצר, אבטחת איפוס בלתי-ניתנת-לביטול, AM Message, ודשבורד."
+  "versionCode": 4021,
+  "versionName": "3.9.21",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/v3.9.21/AM-Kids-3.9.21.apk",
+  "sha256": "80b94d82d78faa4ed361d33b870028385a2f7403412cada7315276d59476c657",
+  "notes": "AM Message מלא (התראות, נמסר/נקרא, הקלטה קולית, תמונות, אווטרים), קולות אחידים בסיפורים, וסריקת QR."
 }
