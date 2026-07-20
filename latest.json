@@ -1,7 +1,7 @@
 {
-  "versionCode": 4025,
-  "versionName": "3.9.25",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.25/amk3925.bin",
-  "sha256": "0fa8d63a64b34193f477d0215eacadfba82d800e9170d1270452d617297a8155",
-  "notes": "עיצוב חדש להודעות: רשימת שיחות נקייה, תפריט הגדרות (הקוד/QR והפרופיל), ומדיה שעובדת."
+  "versionCode": 4026,
+  "versionName": "3.9.26",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.26/amk3926.bin",
+  "sha256": "f5b3444a391cced78acf185127a2ceecfa6b2baeeeaf59437871bf700757e50e",
+  "notes": "עיצוב חדש להודעות (רשימת שיחות + הגדרות) — בנייה נקייה, הפעם הקוד באמת בפנים."
 }
