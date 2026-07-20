@@ -1,7 +1,7 @@
 {
-  "versionCode": 4022,
-  "versionName": "3.9.22",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/v3.9.22/amk3922.bin",
-  "sha256": "e396b12fa783a519b3c839898855020c6b4111cac8897774664fdd5b20572012",
-  "notes": "תיקון הצ'אט (עובד בלי הגדרות), עיצוב חדש, סריקת QR מתוקנת, מדיה והקלטה קולית."
+  "versionCode": 4023,
+  "versionName": "3.9.23",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/v3.9.23/amk3923.bin",
+  "sha256": "00c19f4bf57492be265a6fcdcfba900e71009ef3f3683f6e0761573090ffc078",
+  "notes": "מדיה בלי הגדרות (תמונות+הקלטה), תמונת פרופיל, עיצוב חדש, שיתוף איש קשר."
 }
