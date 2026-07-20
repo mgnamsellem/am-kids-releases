@@ -1,7 +1,7 @@
 {
-  "versionCode": 4023,
-  "versionName": "3.9.23",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.23/amk3923.bin",
-  "sha256": "00c19f4bf57492be265a6fcdcfba900e71009ef3f3683f6e0761573090ffc078",
-  "notes": "מדיה בלי הגדרות (תמונות+הקלטה), תמונת פרופיל, עיצוב חדש, שיתוף איש קשר."
+  "versionCode": 4024,
+  "versionName": "3.9.24",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.24/amk3924.bin",
+  "sha256": "2f68b6c2bef9f11668d3663f7dde898c955cb407b5c6ad5de8358415f3c35657",
+  "notes": "תיקון באג הכרטיס במסך ההודעות + מדיה מוטמעת (תמונות והקלטה עובדות בלי הגדרות)."
 }
