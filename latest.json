@@ -1,7 +1,7 @@
 {
-  "versionCode": 4028,
-  "versionName": "3.9.28",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.28/amk3928.bin",
-  "sha256": "d5a37c722531a05b7c58354d80fc7409590e6425845d527d4b86c054ada993d2",
-  "notes": "מיקום: שיתוף מיקום בצ'אט + דיווח מיקום רציף לדשבורד (תמיד יודעים איפה הילד)."
+  "versionCode": 4030,
+  "versionName": "3.9.30",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.30/amk3930.bin",
+  "sha256": "251f2b7e7fbc6e519819edd68340c7f994002c6f03d6e8121fda2c3dacda4d85",
+  "notes": "לחיצה ארוכה לשינוי שם/מחיקה, הגדרות מורחבות, ותיקון קריטי: כל מכשיר נרשם בנפרד."
 }
