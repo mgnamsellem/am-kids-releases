@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AM Kids — ניהול מכשירים</title>
+<style>
+  :root{ --bg:#0F172A; --card:#1E293B; --card2:#243244; --line:#334155;
+    --txt:#E2E8F0; --muted:#94A3B8; --ok:#22C55E; --block:#EF4444;
+    --accent:#38BDF8; --amber:#F59E0B; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"SF Hebrew","Segoe UI",system-ui,Arial;
+    background:var(--bg);color:var(--txt);line-height:1.5}
+  header{padding:16px 22px;background:var(--card);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  h1{font-size:19px;margin:0;font-weight:800}
+  .muted{color:var(--muted);font-size:13px}
+  .spacer{flex:1}
+  .live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);
+    animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  main{padding:22px;max-width:1180px;margin:0 auto}
+  .cfg{background:#7F1D1D;color:#FECACA;padding:12px 16px;border-radius:10px;margin-bottom:18px}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .stat .n{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .stat.ok .n{color:var(--ok)} .stat.block .n{color:var(--block)}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  input[type=text]{background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:9px 12px;border-radius:9px;font-size:14px}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:760px}
+  th,td{padding:12px 14px;text-align:right;border-bottom:1px solid var(--line);font-size:13.5px;white-space:nowrap}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;display:inline-block}
+  .active{background:rgba(34,197,94,.15);color:var(--ok)}
+  .blocked{background:rgba(239,68,68,.15);color:var(--block)}
+  .on{background:rgba(56,189,248,.16);color:var(--accent)}
+  .off{background:rgba(148,163,184,.16);color:var(--muted)}
+  button{border:0;border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:700;
+    cursor:pointer;color:#fff;font-family:inherit}
+  .b-block{background:var(--block)} .b-open{background:var(--ok)}
+  .b-sub{background:var(--accent);color:#06283a} .b-unsub{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+  .edit{cursor:pointer;border-bottom:1px dashed var(--muted)}
+  .empty{padding:30px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ AM Kids — ניהול מכשירים</h1>
+  <span class="muted" id="count"></span>
+  <div class="spacer"></div>
+  <div class="live"><span class="dot"></span>מתעדכן אוטומטית</div>
+</header>
+<main>
+  <div id="needcfg" class="cfg" style="display:none">
+    ⚠️ יש למלא <code>SUPABASE_URL</code> ו-<code>SUPABASE_ANON_KEY</code> בראש הקובץ.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="s-total">0</div><div class="l">מכשירים בסך הכל</div></div>
+    <div class="stat ok"><div class="n" id="s-active">0</div><div class="l">פעילים</div></div>
+    <div class="stat block"><div class="n" id="s-blocked">0</div><div class="l">חסומים</div></div>
+  </div>
+
+  <div class="row">
+    <input type="text" id="search" placeholder="חיפוש לפי טלפון / דגם / שם…" style="flex:1;min-width:220px" oninput="render()">
+    <button class="b-open" onclick="load()">רענן</button>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>דגם</th><th>שם לקוח</th><th>טלפון</th><th>גרסה</th><th>נראה</th><th>מיקום</th>
+        <th>סטטוס</th><th>AM Message</th><th>פרופיל / מדיה</th><th>פעולות</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
+    </table>
+  </div>
+  <p class="muted" style="margin-top:12px">
+    "חסום" נועל את המכשיר בסנכרון הבא. "הפעל AM Message" פותח את הצ'אט למכשיר (מנוי חודשי).
+  </p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── מלא מ-Supabase → Project Settings → API ──
+const SUPABASE_URL = 'https://erigsbhjtlyjcepyllww.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaWdzYmhqdGx5amNlcHlsbHd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyOTMyODcsImV4cCI6MjA5OTg2OTI4N30.a528BbEapftJIEnIF-mQuXsWOvqI3NFhlZzjac4hUI4'
+
+const need = !SUPABASE_URL || !SUPABASE_ANON_KEY
+if (need) document.getElementById('needcfg').style.display = 'block'
+const db = need ? null : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+let DEVICES = []      // devices joined with am_message subscription flag
+const fmt = (t) => { if(!t) return '—'; const d=new Date(t), s=(Date.now()-d)/1000;
+  if(s<60)return 'עכשיו'; if(s<3600)return Math.floor(s/60)+' דק׳';
+  if(s<86400)return Math.floor(s/3600)+' ש׳'; return d.toLocaleDateString('he-IL') }
+const esc = (s)=> (s??'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))
+
+async function load(){
+  if(!db){ document.getElementById('rows').innerHTML='<tr><td colspan="10" class="empty">לא מוגדר</td></tr>'; return }
+  const [dev, subs] = await Promise.all([
+    db.from('devices').select('*').order('last_seen',{ascending:false}).limit(500),
+    db.from('subscriptions').select('device_id,feature,status').eq('feature','am_message')
+  ])
+  if(dev.error){ document.getElementById('rows').innerHTML=`<tr><td colspan="10" class="empty">${dev.error.message}</td></tr>`; return }
+  const subMap = {}; (subs.data||[]).forEach(s=> subMap[s.device_id]=s.status)
+  DEVICES = (dev.data||[]).map(d=> ({...d, am: subMap[d.id]==='active'}))
+  // stats
+  document.getElementById('s-total').textContent = DEVICES.length
+  document.getElementById('s-active').textContent = DEVICES.filter(d=>d.status==='active').length
+  document.getElementById('s-blocked').textContent = DEVICES.filter(d=>d.status==='blocked').length
+  render()
+}
+
+function render(){
+  const q = (document.getElementById('search').value||'').trim().toLowerCase()
+  const list = DEVICES.filter(d=> !q ||
+    (d.customer_phone||'').toLowerCase().includes(q) ||
+    (d.model||'').toLowerCase().includes(q) ||
+    (d.customer_name||'').toLowerCase().includes(q))
+  document.getElementById('count').textContent = `${list.length} מכשירים`
+  const rows = document.getElementById('rows')
+  if(!list.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; return }
+  rows.innerHTML = list.map(d=>{
+    const blocked = d.status==='blocked'
+    const stPill = blocked ? '<span class="pill blocked">חסום</span>' : '<span class="pill active">פעיל</span>'
+    const amPill = d.am ? '<span class="pill on">פעיל</span>' : '<span class="pill off">כבוי</span>'
+    const stBtn = blocked
+      ? `<button class="b-open" onclick="setStatus('${d.id}','active')">פתח</button>`
+      : `<button class="b-block" onclick="setStatus('${d.id}','blocked')">חסום</button>`
+    const amBtn = d.am
+      ? `<button class="b-unsub" onclick="setSub('${d.id}',false)">בטל</button>`
+      : `<button class="b-sub" onclick="setSub('${d.id}',true)">הפעל</button>`
+    const cfg = d.config||{}
+    const gender = cfg.gender||''
+    const media = cfg.media===true
+    const profileCell = `
+      <select onchange="setGender('${d.id}',this.value)" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px">
+        <option value="" ${!gender?'selected':''}>מין —</option>
+        <option value="boy" ${gender==='boy'?'selected':''}>בן 👦</option>
+        <option value="girl" ${gender==='girl'?'selected':''}>בת 👧</option>
+      </select>
+      ${media
+        ? `<button class="b-unsub" onclick="setMedia('${d.id}',false)">מדיה: פתוחה</button>`
+        : `<button class="b-sub" onclick="setMedia('${d.id}',true)">מדיה: סגורה</button>`}`
+    const loc = cfg.last_location
+    const locCell = (loc && loc.lat!=null)
+      ? `<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" style="color:var(--accent);font-weight:700">📍 מפה</a>`
+        + `<div class="muted" style="font-size:11px">${fmt(loc.at)}</div>`
+      : '<span class="muted">—</span>'
+    return `<tr>
+      <td>${esc(d.model)||'—'}</td>
+      <td><span class="edit" onclick="editField('${d.id}','customer_name','שם לקוח')">${esc(d.customer_name)||'הוסף'}</span></td>
+      <td><span class="edit" onclick="editField('${d.id}','customer_phone','טלפון')">${esc(d.customer_phone)||'הוסף'}</span></td>
+      <td>${esc(d.app_version)||'—'}</td>
+      <td>${fmt(d.last_seen)}</td>
+      <td>${locCell}</td>
+      <td>${stPill}</td>
+      <td>${amPill} ${amBtn}</td>
+      <td>${profileCell}</td>
+      <td>${stBtn}</td>
+    </tr>`
+  }).join('')
+}
+
+async function setStatus(id, status){
+  const {error} = await db.from('devices').update({status}).eq('id',id)
+  if(error) alert(error.message); else load()
+}
+
+async function editField(id, field, label){
+  const cur = (DEVICES.find(d=>d.id===id)||{})[field] || ''
+  const val = prompt(label+':', cur)
+  if(val===null) return
+  const {error} = await db.from('devices').update({[field]: val}).eq('id',id)
+  if(error) alert(error.message); else load()
+}
+
+async function setGender(id, gender){
+  const d = DEVICES.find(x=>x.id===id)||{}
+  const config = {...(d.config||{}), gender}
+  const {error} = await db.from('devices').update({config}).eq('id',id)
+  if(error) alert(error.message); else load()
+}
+
+async function setMedia(id, on){
+  const d = DEVICES.find(x=>x.id===id)||{}
+  const config = {...(d.config||{}), media:on}
+  const {error} = await db.from('devices').update({config}).eq('id',id)
+  if(error) alert(error.message); else load()
+}
+
+async function setSub(deviceId, on){
+  const now = new Date()
+  const expires = new Date(now.getTime()+31*864e5).toISOString()
+  const row = { device_id:deviceId, feature:'am_message',
+    status: on?'active':'expired', price_agorot:1000,
+    started_at: on? now.toISOString(): null, expires_at: on? expires: null,
+    updated_at: now.toISOString() }
+  const {error} = await db.from('subscriptions').upsert(row, {onConflict:'device_id,feature'})
+  if(error) alert(error.message); else load()
+}
+
+load()
+setInterval(load, 10000)  // ריענון אוטומטי כל 10 שניות
+</script>
+</body>
+</html>
