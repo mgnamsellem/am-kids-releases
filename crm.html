@@ -94,6 +94,11 @@
   .b-save{background:var(--ok);color:#04220f} .b-cancel{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
   .b-reset{background:var(--amber);color:#3a2500}
   .b-save,.b-cancel,.b-reset{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .ctrls{display:flex;gap:10px;flex-wrap:wrap}
+  .b-ctrl{border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-size:14px;
+    font-weight:700;cursor:pointer;font-family:inherit;background:var(--card2);color:var(--txt)}
+  .b-ctrl.warn{background:rgba(245,158,11,.15);border-color:var(--amber);color:#fcd34d}
+  .b-ctrl.danger{background:rgba(239,68,68,.15);border-color:var(--block);color:#fca5a5}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);
     color:#04220f;padding:12px 22px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:.3s}
   .toast.show{opacity:1}
@@ -250,6 +255,24 @@
           <div class="f"><label>מדיה (תמונות/פרופיל)</label>
             <select id="d-media"><option value="false">סגור (אווטר בלבד)</option><option value="true">פתוח</option></select>
           </div>
+        </div>
+      </div>
+
+      <div class="grpcard">
+        <h3>⚡ שליטה מרחוק (המנהל תמיד בשליטה)</h3>
+        <p style="color:var(--muted);font-size:12.5px;margin:0 0 14px">
+          פקודות אלו נשלחות למכשיר ומבוצעות תוך דקה (בפעם הבאה שהוא מסתנכרן) —
+          גם אם המכשיר חסום או במצב Device Owner.</p>
+        <div class="ctrls">
+          <button class="b-ctrl warn" onclick="sendCommand('release')"
+            title="מסיר את Device Owner וכל המדיניות — אפשר להסיר/לאפס את המכשיר ידנית">
+            🔓 שחרר מכשיר (בטל Device Owner)</button>
+          <button class="b-ctrl" onclick="sendCommand('reboot')"
+            title="מאתחל את המכשיר מרחוק">
+            🔄 אתחל מכשיר</button>
+          <button class="b-ctrl danger" onclick="sendCommand('wipe')"
+            title="איפוס להגדרות יצרן — מוחק את כל תוכן המכשיר">
+            🗑️ אפס להגדרות יצרן</button>
         </div>
       </div>
 
@@ -420,6 +443,21 @@ async function resetIdentity(){
   if(error){ toast('שגיאה: '+error.message); return }
   toast('פקודת איפוס נשלחה — המכשירים יתפצלו תוך דקה ✓')
   showPage('customers')
+}
+
+// ── שליטה מרחוק: שולח פקודה חד-פעמית ל-config.command עם nonce ──
+async function sendCommand(type){
+  if(!CURRENT) return
+  const label = {release:'לשחרר את המכשיר (ביטול Device Owner)',
+    reboot:'לאתחל את המכשיר', wipe:'לאפס את המכשיר להגדרות יצרן (מחיקת כל התוכן!)'}[type]
+  const who = CURRENT.customer_name||CURRENT.model||'—'
+  if(!confirm('בטוח '+label+'?\n\nמכשיר: '+who+'\nהפעולה תתבצע תוך דקה, בפעם הבאה שהמכשיר יסתנכרן.')) return
+  if(type==='wipe' && !confirm('אזהרה אחרונה: איפוס להגדרות יצרן מוחק את כל תוכן המכשיר ואינו הפיך. להמשיך?')) return
+  const cfg={...(CURRENT.config||{}), command:{type, nonce:String(Date.now())}}
+  const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  CURRENT.config=cfg
+  toast('פקודה נשלחה — תתבצע תוך דקה ✓')
 }
 
 async function saveDevice(){
