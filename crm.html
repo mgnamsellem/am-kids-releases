@@ -281,6 +281,18 @@
         </div>
       </div>
 
+      <div class="grpcard">
+        <h3>🧪 הקשחת אבטחה — שלב 1 (בהרצה הדרגתית)</h3>
+        <p class="cardnote">מפעיל הזדהות מאובטחת פר-מכשיר. הפעל <b>תחילה על מכשיר בדיקה אחד</b>,
+          ודא שהצ'אט והרישוי עדיין עובדים, ורק אז על שאר הצי. דורש אפליקציה 3.9.33 ומעלה.</p>
+        <div class="grid">
+          <div class="f"><label>הזדהות מאובטחת (JWT)</label>
+            <select id="d-auth"><option value="off">כבוי (כמו היום)</option><option value="on">מופעל</option></select>
+            <div class="hint"><b>כבוי</b> = המכשיר עובד בדיוק כמו היום. <b>מופעל</b> = המכשיר משתמש בזהות מאומתת (הצעד לקראת נעילת השרת). שנה רק אחרי שהמכשיר עודכן ל-3.9.33.</div>
+          </div>
+        </div>
+      </div>
+
       <div class="savebar">
         <button class="b-save" onclick="saveDevice()">💾 שמירה וחזרה</button>
         <button class="b-cancel" onclick="showPage('customers')">ביטול</button>
@@ -450,6 +462,7 @@ function openDetail(id){
   $('d-loc').value = (loc&&loc.lat!=null)?`${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)} (${fmt(loc.at)})`:'—'
   $('d-status').value=d.status||'active'
   $('d-lock').value=cfg.lock||'locked'
+  $('d-auth').value=cfg.auth==='on'?'on':'off'
   $('d-lastsync').textContent=fmt(d.last_seen)
   $('d-am').value = SUBS[d.id]==='active'?'on':'off'
   $('d-tether').value=cfg.tethering||'open'
@@ -502,6 +515,7 @@ async function saveDevice(){
   cfg.renew=$('d-renew').value
   cfg.tethering=$('d-tether').value
   cfg.lock=$('d-lock').value
+  cfg.auth=$('d-auth').value
   cfg.plan=$('d-plan').value
   cfg.gender=$('d-gender').value
   cfg.media=$('d-media').value==='true'
