@@ -1,7 +1,7 @@
 {
-  "versionCode": 4030,
-  "versionName": "3.9.30",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.30/amk3930.bin",
-  "sha256": "251f2b7e7fbc6e519819edd68340c7f994002c6f03d6e8121fda2c3dacda4d85",
-  "notes": "לחיצה ארוכה לשינוי שם/מחיקה, הגדרות מורחבות, ותיקון קריטי: כל מכשיר נרשם בנפרד."
+  "versionCode": 4031,
+  "versionName": "3.9.31",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/latest/download/AM-Kids.apk",
+  "sha256": "503c9713650a086c7dc24377b7746e85036f38864e924e4c3060c223a2dee045",
+  "notes": "גרסה 3.9.31"
 }
