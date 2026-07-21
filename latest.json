@@ -1,7 +1,7 @@
 {
-  "versionCode": 4027,
-  "versionName": "3.9.27",
-  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.27/amk3927.bin",
-  "sha256": "c58e4da5fc9263ee8e657333b98b4b0356c2076f27a9a98eaed0a0877476e13e",
-  "notes": "תיקון קפיצת הגלילה/רענון בצ'אט — עכשיו נשאר למטה ולא מרענן סתם."
+  "versionCode": 4028,
+  "versionName": "3.9.28",
+  "url": "https://github.com/mgnamsellem/am-kids-releases/releases/download/3.9.28/amk3928.bin",
+  "sha256": "d5a37c722531a05b7c58354d80fc7409590e6425845d527d4b86c054ada993d2",
+  "notes": "מיקום: שיתוף מיקום בצ'אט + דיווח מיקום רציף לדשבורד (תמיד יודעים איפה הילד)."
 }
