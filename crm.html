@@ -92,7 +92,8 @@
   .savebar{display:flex;gap:10px;justify-content:flex-start;position:sticky;bottom:0;
     background:linear-gradient(transparent,var(--bg) 40%);padding:16px 0}
   .b-save{background:var(--ok);color:#04220f} .b-cancel{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
-  .b-save,.b-cancel{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .b-reset{background:var(--amber);color:#3a2500}
+  .b-save,.b-cancel,.b-reset{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);
     color:#04220f;padding:12px 22px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:.3s}
   .toast.show{opacity:1}
@@ -255,6 +256,9 @@
       <div class="savebar">
         <button class="b-save" onclick="saveDevice()">שמירה וחזרה</button>
         <button class="b-cancel" onclick="showPage('customers')">ביטול</button>
+        <button class="b-reset" onclick="resetIdentity()"
+          title="אם שני מכשירים פיזיים חולקים את הרשומה הזו — יפצל אותם לשני מכשירים עצמאיים">
+          ♻️ אפס זהות (פיצול משוכפלים)</button>
       </div>
     </section>
   </main>
@@ -404,6 +408,18 @@ function openDetail(id){
   $('d-gender').value=cfg.gender||''
   $('d-media').value = cfg.media===true?'true':'false'
   showPage('detail'); window.scrollTo(0,0)
+}
+
+async function resetIdentity(){
+  if(!CURRENT) return
+  if(!confirm('לאפס את הזהות של "'+(CURRENT.customer_name||CURRENT.model||'—')+'"?\n\n'
+    +'כל מכשיר פיזי שמחובר לרשומה הזו ייצור מזהה חדש ויהפוך לעצמאי (הפיצול קורה תוך דקה).\n'
+    +'הרשומה הזו תתרוקן — תוכל למחוק אותה אחר כך.')) return
+  const cfg={...(CURRENT.config||{}), reset_id:String(Date.now())}
+  const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('פקודת איפוס נשלחה — המכשירים יתפצלו תוך דקה ✓')
+  showPage('customers')
 }
 
 async function saveDevice(){
