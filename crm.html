@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AM Kids — מערכת ניהול לקוחות</title>
+<style>
+  :root{ --bg:#0F172A; --card:#1E293B; --card2:#243244; --line:#334155;
+    --txt:#E2E8F0; --muted:#94A3B8; --ok:#22C55E; --block:#EF4444;
+    --accent:#38BDF8; --amber:#F59E0B; --pri:#6366F1; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"SF Hebrew","Segoe UI",system-ui,Arial;
+    background:var(--bg);color:var(--txt);line-height:1.5}
+  a{color:var(--accent)}
+  .hide{display:none!important}
+
+  /* ── LOGIN ── */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .loginbox{background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:34px 30px;width:100%;max-width:400px}
+  .loginbox h1{font-size:23px;margin:0 0 4px;font-weight:800}
+  .loginbox p{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+  .fld input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:11px 13px;border-radius:10px;font-size:15px}
+  .btn{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:12px 16px;
+    font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:inherit}
+  .btn:disabled{opacity:.6}
+  .err{color:#FCA5A5;font-size:13px;margin-top:10px;min-height:18px}
+  .row-between{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-top:4px}
+
+  /* ── APP ── */
+  #app{display:flex;min-height:100vh}
+  aside{width:210px;background:var(--card);border-left:1px solid var(--line);padding:18px 12px;
+    position:sticky;top:0;height:100vh;flex-shrink:0}
+  .brand{font-weight:800;font-size:17px;padding:6px 10px 16px;display:flex;align-items:center;gap:8px}
+  .nav a{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
+    color:var(--txt);text-decoration:none;font-size:14.5px;margin-bottom:4px;cursor:pointer}
+  .nav a.active{background:rgba(99,102,241,.18);color:#c7d2fe}
+  .nav a.soon{color:var(--muted)}
+  main{flex:1;min-width:0}
+  header.top{padding:14px 22px;background:var(--card);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  .op{display:flex;align-items:center;gap:8px;font-size:14px}
+  .op .code{background:var(--card2);padding:2px 8px;border-radius:6px;font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .b-ghost{background:var(--card2);color:var(--muted);border:1px solid var(--line);border-radius:8px;
+    padding:7px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  section.page{padding:22px;max-width:1240px;margin:0 auto}
+  h2{font-size:20px;margin:0 0 16px;font-weight:800}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .stat .n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:5px}
+  .stat.ok .n{color:var(--ok)} .stat.block .n{color:var(--block)} .stat.am .n{color:var(--accent)}
+
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .toolbar input{background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:9px 12px;border-radius:9px;font-size:14px;flex:1;min-width:220px}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:820px}
+  th,td{padding:12px 14px;text-align:right;border-bottom:1px solid var(--line);font-size:13.5px;white-space:nowrap}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  tr:last-child td{border-bottom:none}
+  tbody tr{cursor:pointer} tbody tr:hover{background:rgba(148,163,184,.06)}
+  .pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;display:inline-block}
+  .active{background:rgba(34,197,94,.15);color:var(--ok)}
+  .blocked{background:rgba(239,68,68,.15);color:var(--block)}
+  .on{background:rgba(56,189,248,.16);color:var(--accent)}
+  .off{background:rgba(148,163,184,.16);color:var(--muted)}
+  .empty{padding:30px;text-align:center;color:var(--muted)}
+  .pager{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:14px;color:var(--muted);font-size:13px}
+  .pager button{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:8px;
+    padding:5px 11px;cursor:pointer;font-family:inherit}
+
+  /* ── DETAIL ── */
+  .backlink{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:14px;display:inline-block}
+  .grpcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .grpcard h3{font-size:15px;color:var(--accent);margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  .f label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .f input,.f select,.f textarea{width:100%;background:var(--bg);border:1px solid var(--line);
+    color:var(--txt);padding:9px 11px;border-radius:9px;font-size:14px;font-family:inherit}
+  .f input:disabled{color:var(--muted);opacity:.8}
+  .f.ro input{background:transparent;border-color:transparent;padding-right:0}
+  .savebar{display:flex;gap:10px;justify-content:flex-start;position:sticky;bottom:0;
+    background:linear-gradient(transparent,var(--bg) 40%);padding:16px 0}
+  .b-save{background:var(--ok);color:#04220f} .b-cancel{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+  .b-save,.b-cancel{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);
+    color:#04220f;padding:12px 22px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:.3s}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login">
+  <form class="loginbox" onsubmit="doLogin(event)">
+    <h1>כניסה למערכת</h1>
+    <p>ניהול לקוחות AM Kids</p>
+    <div class="fld"><label>אימייל</label><input id="li-email" type="email" autocomplete="username" required></div>
+    <div class="fld"><label>סיסמה</label><input id="li-pass" type="password" autocomplete="current-password" required></div>
+    <div class="row-between">
+      <label style="color:var(--muted);cursor:pointer"><input id="li-remember" type="checkbox" checked style="width:auto"> זכור אותי</label>
+      <a onclick="forgotPass()">שכחת סיסמה?</a>
+    </div>
+    <div style="height:14px"></div>
+    <button class="btn" id="li-btn" type="submit">כניסה</button>
+    <div class="err" id="li-err"></div>
+  </form>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app" class="hide">
+  <aside>
+    <div class="brand">🛡️ AM Kids</div>
+    <nav class="nav">
+      <a class="active" onclick="showPage('customers')">👥 לקוחות</a>
+      <a class="soon" onclick="soon()">💳 קרדיטים</a>
+      <a class="soon" onclick="soon()">🔗 חיבורים בקוד</a>
+      <a class="soon" onclick="soon()">📎 קישורים</a>
+    </nav>
+  </aside>
+  <main>
+    <header class="top">
+      <div class="op">👤 <span id="op-name">—</span> <span class="code" id="op-code"></span></div>
+      <div class="spacer"></div>
+      <div class="live"><span class="dot"></span>מתעדכן אוטומטית</div>
+      <button class="b-ghost" onclick="logout()">יציאה</button>
+    </header>
+
+    <!-- Customer list -->
+    <section class="page" id="page-customers">
+      <h2>לקוחות</h2>
+      <div class="stats">
+        <div class="stat"><div class="n" id="s-total">0</div><div class="l">סה״כ מכשירים</div></div>
+        <div class="stat ok"><div class="n" id="s-active">0</div><div class="l">פעילים</div></div>
+        <div class="stat block"><div class="n" id="s-blocked">0</div><div class="l">חסומים</div></div>
+        <div class="stat am"><div class="n" id="s-am">0</div><div class="l">AM Message פעיל</div></div>
+      </div>
+      <div class="toolbar">
+        <input id="search" placeholder="חיפוש: שם / טלפון / דגם / מזהה…" oninput="render()">
+        <button class="b-ghost" onclick="loadDevices()">רענן</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>שם</th><th>טלפון</th><th>תאריך חיבור</th><th>מכשיר</th>
+            <th>אנדרואיד</th><th>גרסה</th><th>מיקום</th><th>מזהה</th><th>פעילות</th><th>סטטוס</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager" id="pager"></div>
+    </section>
+
+    <!-- Customer detail -->
+    <section class="page hide" id="page-detail">
+      <span class="backlink" onclick="showPage('customers')">→ חזרה לרשימה</span>
+      <h2 id="d-title">כרטיס לקוח</h2>
+
+      <div class="grpcard">
+        <h3>פרטי משתמש</h3>
+        <div class="grid">
+          <div class="f"><label>שם הלקוח</label><input id="d-name"></div>
+          <div class="f"><label>טלפון</label><input id="d-phone"></div>
+          <div class="f"><label>טלפון הורה לעדכונים</label><input id="d-parentphone"></div>
+          <div class="f"><label>דוא״ל</label><input id="d-email"></div>
+          <div class="f"><label>סיסמת הורה</label><input id="d-parentpass"></div>
+          <div class="f"><label>אמצעי תשלום</label><input id="d-payment"></div>
+          <div class="f"><label>מיקום לקוח</label>
+            <select id="d-region"><option value="">—</option><option>ישראל</option><option>אירופה</option><option>ארה״ב</option><option>חו״ל</option></select>
+          </div>
+          <div class="f"><label>הערות</label><input id="d-notes"></div>
+          <div class="f ro"><label>מזהה לקוח</label><input id="d-hash" disabled></div>
+        </div>
+      </div>
+
+      <div class="grpcard">
+        <h3>פרטי המכשיר</h3>
+        <div class="grid">
+          <div class="f ro"><label>דגם</label><input id="d-model" disabled></div>
+          <div class="f ro"><label>גרסת אנדרואיד</label><input id="d-android" disabled></div>
+          <div class="f ro"><label>גרסת אפליקציה</label><input id="d-appver" disabled></div>
+          <div class="f ro"><label>תאריך חיבור ראשוני</label><input id="d-first" disabled></div>
+          <div class="f ro"><label>סנכרון אחרון</label><input id="d-last" disabled></div>
+          <div class="f"><label>תאריך חידוש מנוי</label><input id="d-renew" type="date"></div>
+          <div class="f ro"><label>מיקום נוכחי</label><input id="d-loc" disabled></div>
+        </div>
+      </div>
+
+      <div class="grpcard">
+        <h3>הגדרות חסימה ומנוי</h3>
+        <div class="grid">
+          <div class="f"><label>דרגה (חסימת מכשיר)</label>
+            <select id="d-status"><option value="active">פתוח</option><option value="blocked">חסום</option><option value="pending">ממתין</option></select>
+          </div>
+          <div class="f"><label>AM Message</label>
+            <select id="d-am"><option value="off">סגור</option><option value="on">פתוח</option></select>
+          </div>
+          <div class="f"><label>נתב אלחוטי (שיתוף אינטרנט)</label>
+            <select id="d-tether"><option value="open">פתוח</option><option value="blocked">חסום</option></select>
+          </div>
+          <div class="f"><label>הפעלת לוגים</label>
+            <select id="d-logs"><option value="off">סגור</option><option value="on">פתוח</option></select>
+          </div>
+          <div class="f"><label>סטטוס מנוי</label>
+            <select id="d-plan">
+              <option value="basic_active">AM Kids בסיסי - פעיל</option>
+              <option value="premium_active">AM Kids פרימיום - פעיל</option>
+              <option value="trial">תקופת ניסיון</option>
+              <option value="cancelled">מנוי בוטל</option>
+            </select>
+          </div>
+          <div class="f"><label>מין (לאווטר AM Message)</label>
+            <select id="d-gender"><option value="">—</option><option value="boy">בן 👦</option><option value="girl">בת 👧</option></select>
+          </div>
+          <div class="f"><label>מדיה (תמונות/פרופיל)</label>
+            <select id="d-media"><option value="false">סגור (אווטר בלבד)</option><option value="true">פתוח</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="savebar">
+        <button class="b-save" onclick="saveDevice()">שמירה וחזרה</button>
+        <button class="b-cancel" onclick="showPage('customers')">ביטול</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── מלא מ-Supabase → Project Settings → API ──
+const SUPABASE_URL = 'https://erigsbhjtlyjcepyllww.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaWdzYmhqdGx5amNlcHlsbHd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyOTMyODcsImV4cCI6MjA5OTg2OTI4N30.a528BbEapftJIEnIF-mQuXsWOvqI3NFhlZzjac4hUI4'
+
+const db = (SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true}})
+  : null
+
+let DEVICES = [], SUBS = {}, PAGE = 1, PER = 12, CURRENT = null
+
+const $ = id => document.getElementById(id)
+const esc = s => (s??'').toString().replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))
+const fmt = t => { if(!t) return '—'; const d=new Date(t), s=(Date.now()-d)/1000;
+  if(s<60)return 'עכשיו'; if(s<3600)return Math.floor(s/60)+' דק׳';
+  if(s<86400)return Math.floor(s/3600)+' ש׳'; return d.toLocaleDateString('he-IL') }
+const fdate = t => t ? new Date(t).toLocaleDateString('he-IL')+' '+new Date(t).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}) : '—'
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200) }
+function soon(){ toast('בקרוב 🚧') }
+
+// ── AUTH ──
+async function doLogin(e){
+  e.preventDefault()
+  if(!db){ $('li-err').textContent='המערכת לא מוגדרת (SUPABASE_URL/KEY)'; return }
+  $('li-btn').disabled=true; $('li-err').textContent=''
+  const {error} = await db.auth.signInWithPassword({email:$('li-email').value.trim(), password:$('li-pass').value})
+  $('li-btn').disabled=false
+  if(error){ $('li-err').textContent = /invalid/i.test(error.message)?'אימייל או סיסמה שגויים':error.message; return }
+  await enterApp()
+}
+async function forgotPass(){
+  const em=$('li-email').value.trim(); if(!em){ $('li-err').textContent='הכנס אימייל קודם'; return }
+  const {error}=await db.auth.resetPasswordForEmail(em)
+  $('li-err').textContent = error ? error.message : 'נשלח מייל לאיפוס סיסמה ✓'
+}
+async function logout(){ await db.auth.signOut(); location.reload() }
+
+async function enterApp(){
+  const {data:{user}} = await db.auth.getUser()
+  if(!user) return
+  $('login').classList.add('hide'); $('app').classList.remove('hide')
+  // מפעיל לפי login_email
+  let opName = user.email, opCode = ''
+  try{
+    const {data:op} = await db.from('operators').select('name,id,role').eq('login_email',user.email).maybeSingle()
+    if(op){ opName=op.name||user.email; opCode=(op.id||'').slice(0,4) }
+  }catch(_){}
+  $('op-name').textContent=opName; $('op-code').textContent=opCode?('#'+opCode):''
+  loadDevices()
+}
+
+// ── DATA ──
+async function loadDevices(){
+  if(!db) return
+  const [dev,subs] = await Promise.all([
+    db.from('devices').select('*').order('last_seen',{ascending:false}).limit(1000),
+    db.from('subscriptions').select('device_id,feature,status').eq('feature','am_message')
+  ])
+  if(dev.error){ $('rows').innerHTML=`<tr><td colspan="10" class="empty">${esc(dev.error.message)}</td></tr>`; return }
+  SUBS={}; (subs.data||[]).forEach(s=> SUBS[s.device_id]=s.status)
+  DEVICES = dev.data||[]
+  $('s-total').textContent=DEVICES.length
+  $('s-active').textContent=DEVICES.filter(d=>d.status==='active').length
+  $('s-blocked').textContent=DEVICES.filter(d=>d.status==='blocked').length
+  $('s-am').textContent=DEVICES.filter(d=>SUBS[d.id]==='active').length
+  render()
+}
+
+function filtered(){
+  const q=($('search').value||'').trim().toLowerCase()
+  return DEVICES.filter(d=> !q ||
+    (d.customer_name||'').toLowerCase().includes(q) ||
+    (d.customer_phone||'').toLowerCase().includes(q) ||
+    (d.model||'').toLowerCase().includes(q) ||
+    (d.device_hash||'').toLowerCase().includes(q))
+}
+function render(){
+  const list=filtered()
+  const pages=Math.max(1,Math.ceil(list.length/PER))
+  if(PAGE>pages)PAGE=pages
+  const slice=list.slice((PAGE-1)*PER,PAGE*PER)
+  const rows=$('rows')
+  if(!slice.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; $('pager').innerHTML=''; return }
+  rows.innerHTML=slice.map(d=>{
+    const cfg=d.config||{}, loc=cfg.last_location
+    const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
+      : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
+    const locCell = (loc&&loc.lat!=null)?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" onclick="event.stopPropagation()">📍</a>`:'—'
+    return `<tr onclick="openDetail('${d.id}')">
+      <td>${esc(d.customer_name)||'—'}</td>
+      <td>${esc(d.customer_phone)||'—'}</td>
+      <td>${d.first_seen?new Date(d.first_seen).toLocaleDateString('he-IL'):'—'}</td>
+      <td>${esc(d.model)||'—'}</td>
+      <td>${esc(d.android_version)||'—'}</td>
+      <td>${esc(d.app_version)||'—'}</td>
+      <td>${locCell}</td>
+      <td style="color:var(--muted);font-size:12px">${esc((d.device_hash||'').slice(0,10))}</td>
+      <td>${fmt(d.last_seen)}</td>
+      <td>${st}</td>
+    </tr>`
+  }).join('')
+  $('pager').innerHTML = pages>1 ? `
+    <button onclick="PAGE=Math.max(1,PAGE-1);render()">‹</button>
+    <span>עמוד ${PAGE} מתוך ${pages} · ${list.length} לקוחות</span>
+    <button onclick="PAGE=Math.min(${pages},PAGE+1);render()">›</button>` : `<span>${list.length} לקוחות</span>`
+}
+
+// ── DETAIL ──
+function showPage(p){
+  $('page-customers').classList.toggle('hide',p!=='customers')
+  $('page-detail').classList.toggle('hide',p!=='detail')
+}
+function openDetail(id){
+  const d=DEVICES.find(x=>x.id===id); if(!d) return
+  CURRENT=d; const cfg=d.config||{}
+  $('d-title').textContent = 'כרטיס לקוח — '+(d.customer_name||d.model||'—')
+  $('d-name').value=d.customer_name||''
+  $('d-phone').value=d.customer_phone||''
+  $('d-parentphone').value=cfg.parent_phone||''
+  $('d-email').value=cfg.email||''
+  $('d-parentpass').value=cfg.parent_password||''
+  $('d-payment').value=cfg.payment||''
+  $('d-region').value=cfg.region||''
+  $('d-notes').value=cfg.notes||''
+  $('d-hash').value=d.device_hash||''
+  $('d-model').value=d.model||''
+  $('d-android').value=d.android_version||''
+  $('d-appver').value=d.app_version||''
+  $('d-first').value=fdate(d.first_seen)
+  $('d-last').value=fdate(d.last_seen)
+  $('d-renew').value=cfg.renew||''
+  const loc=cfg.last_location
+  $('d-loc').value = (loc&&loc.lat!=null)?`${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)} (${fmt(loc.at)})`:'—'
+  $('d-status').value=d.status||'active'
+  $('d-am').value = SUBS[d.id]==='active'?'on':'off'
+  $('d-tether').value=cfg.tethering||'open'
+  $('d-logs').value=cfg.logs||'off'
+  $('d-plan').value=cfg.plan||'basic_active'
+  $('d-gender').value=cfg.gender||''
+  $('d-media').value = cfg.media===true?'true':'false'
+  showPage('detail'); window.scrollTo(0,0)
+}
+
+async function saveDevice(){
+  if(!CURRENT) return
+  const d=CURRENT, cfg={...(d.config||{})}
+  cfg.parent_phone=$('d-parentphone').value.trim()
+  cfg.email=$('d-email').value.trim()
+  cfg.parent_password=$('d-parentpass').value.trim()
+  cfg.payment=$('d-payment').value.trim()
+  cfg.region=$('d-region').value
+  cfg.notes=$('d-notes').value.trim()
+  cfg.renew=$('d-renew').value
+  cfg.tethering=$('d-tether').value
+  cfg.logs=$('d-logs').value
+  cfg.plan=$('d-plan').value
+  cfg.gender=$('d-gender').value
+  cfg.media=$('d-media').value==='true'
+  const upd={ customer_name:$('d-name').value.trim(), customer_phone:$('d-phone').value.trim(),
+    status:$('d-status').value, config:cfg }
+  const {error}=await db.from('devices').update(upd).eq('id',d.id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  // AM Message subscription
+  const wantAm = $('d-am').value==='on'
+  if((SUBS[d.id]==='active')!==wantAm){
+    const now=new Date(), exp=new Date(now.getTime()+31*864e5)
+    await db.from('subscriptions').upsert({device_id:d.id,feature:'am_message',
+      status:wantAm?'active':'expired',price_agorot:1000,
+      started_at:wantAm?now.toISOString():null,expires_at:wantAm?exp.toISOString():null,
+      updated_at:now.toISOString()},{onConflict:'device_id,feature'})
+  }
+  toast('נשמר ✓')
+  await loadDevices(); showPage('customers')
+}
+
+// ── init ──
+;(async ()=>{
+  if(!db){ $('li-err').textContent='יש למלא SUPABASE_URL ו-SUPABASE_ANON_KEY בראש הקובץ'; return }
+  const {data:{session}} = await db.auth.getSession()
+  if(session) await enterApp()
+})()
+setInterval(()=>{ if(!$('app').classList.contains('hide')) loadDevices() }, 12000)
+</script>
+</body>
+</html>
