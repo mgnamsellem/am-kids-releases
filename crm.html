@@ -210,7 +210,6 @@
           <div class="f"><label>טלפון</label><input id="d-phone"></div>
           <div class="f"><label>טלפון הורה לעדכונים</label><input id="d-parentphone"></div>
           <div class="f"><label>דוא״ל</label><input id="d-email"></div>
-          <div class="f"><label>סיסמת הורה</label><input id="d-parentpass"></div>
           <div class="f"><label>אמצעי תשלום</label><input id="d-payment"></div>
           <div class="f"><label>מיקום לקוח</label>
             <select id="d-region"><option value="">—</option><option>ישראל</option><option>אירופה</option><option>ארה״ב</option><option>חו״ל</option></select>
@@ -437,7 +436,6 @@ function openDetail(id){
   $('d-phone').value=d.customer_phone||''
   $('d-parentphone').value=cfg.parent_phone||''
   $('d-email').value=cfg.email||''
-  $('d-parentpass').value=cfg.parent_password||''
   $('d-payment').value=cfg.payment||''
   $('d-region').value=cfg.region||''
   $('d-notes').value=cfg.notes||''
@@ -496,7 +494,8 @@ async function saveDevice(){
   const d=CURRENT, cfg={...(d.config||{})}
   cfg.parent_phone=$('d-parentphone').value.trim()
   cfg.email=$('d-email').value.trim()
-  cfg.parent_password=$('d-parentpass').value.trim()
+  // הערת אבטחה: לא שומרים סיסמת הורה בטקסט גלוי (הוסר — ראו docs/SECURITY_HARDENING.md).
+  delete cfg.parent_password
   cfg.payment=$('d-payment').value.trim()
   cfg.region=$('d-region').value
   cfg.notes=$('d-notes').value.trim()
