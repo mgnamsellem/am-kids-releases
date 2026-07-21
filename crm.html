@@ -96,6 +96,29 @@
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);
     color:#04220f;padding:12px 22px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:.3s}
   .toast.show{opacity:1}
+
+  /* ── מובייל ── */
+  @media (max-width:760px){
+    #app{flex-direction:column}
+    aside{width:100%;height:auto;position:static;border-left:none;
+      border-bottom:1px solid var(--line);padding:10px 12px}
+    .brand{padding:4px 6px 10px}
+    .nav{display:flex;flex-wrap:wrap;gap:6px}
+    .nav a{margin:0;padding:8px 12px;font-size:13.5px}
+    header.top{flex-wrap:wrap;gap:8px;padding:12px 14px}
+    header.top .live{display:none}
+    .op{font-size:13px}
+    section.page{padding:14px}
+    h2{font-size:18px}
+    .stats{grid-template-columns:repeat(2,1fr);gap:10px}
+    .stat .n{font-size:22px}
+    .toolbar input{min-width:0}
+    .grid{grid-template-columns:1fr}
+    table{min-width:0;width:100%}
+    .mhide{display:none}
+    .savebar{flex-wrap:wrap}
+    .b-save,.b-cancel{flex:1}
+  }
 </style>
 </head>
 <body>
@@ -152,8 +175,9 @@
       <div class="tablewrap">
         <table>
           <thead><tr>
-            <th>שם</th><th>טלפון</th><th>תאריך חיבור</th><th>מכשיר</th>
-            <th>אנדרואיד</th><th>גרסה</th><th>מיקום</th><th>מזהה</th><th>פעילות</th><th>סטטוס</th>
+            <th>שם</th><th>טלפון</th><th class="mhide">תאריך חיבור</th><th>מכשיר</th>
+            <th class="mhide">אנדרואיד</th><th class="mhide">גרסה</th><th>מיקום</th>
+            <th class="mhide">מזהה</th><th>פעילות</th><th>סטטוס</th>
           </tr></thead>
           <tbody id="rows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
         </table>
@@ -330,12 +354,12 @@ function render(){
     return `<tr onclick="openDetail('${d.id}')">
       <td>${esc(d.customer_name)||'—'}</td>
       <td>${esc(d.customer_phone)||'—'}</td>
-      <td>${d.first_seen?new Date(d.first_seen).toLocaleDateString('he-IL'):'—'}</td>
+      <td class="mhide">${d.first_seen?new Date(d.first_seen).toLocaleDateString('he-IL'):'—'}</td>
       <td>${esc(d.model)||'—'}</td>
-      <td>${esc(d.android_version)||'—'}</td>
-      <td>${esc(d.app_version)||'—'}</td>
+      <td class="mhide">${esc(d.android_version)||'—'}</td>
+      <td class="mhide">${esc(d.app_version)||'—'}</td>
       <td>${locCell}</td>
-      <td style="color:var(--muted);font-size:12px">${esc((d.device_hash||'').slice(0,10))}</td>
+      <td class="mhide" style="color:var(--muted);font-size:12px">${esc((d.device_hash||'').slice(0,10))}</td>
       <td>${fmt(d.last_seen)}</td>
       <td>${st}</td>
     </tr>`
@@ -424,3 +448,7 @@ setInterval(()=>{ if(!$('app').classList.contains('hide')) loadDevices() }, 1200
 </script>
 </body>
 </html>
+
+<!-- deploy trigger -->
+
+<!-- retrigger -->
