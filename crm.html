@@ -94,11 +94,18 @@
   .b-save{background:var(--ok);color:#04220f} .b-cancel{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
   .b-reset{background:var(--amber);color:#3a2500}
   .b-save,.b-cancel,.b-reset{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
-  .ctrls{display:flex;gap:10px;flex-wrap:wrap}
-  .b-ctrl{border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-size:14px;
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+  .hint b{color:#cbd5e1}
+  .cardnote{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .cardnote b{color:#cbd5e1}
+  .ctrls{display:flex;gap:14px;flex-wrap:wrap}
+  .ctrl-item{flex:1;min-width:220px;max-width:340px}
+  .b-ctrl{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-size:14px;
     font-weight:700;cursor:pointer;font-family:inherit;background:var(--card2);color:var(--txt)}
   .b-ctrl.warn{background:rgba(245,158,11,.15);border-color:var(--amber);color:#fcd34d}
   .b-ctrl.danger{background:rgba(239,68,68,.15);border-color:var(--block);color:#fca5a5}
+  .danger-zone{border-color:rgba(239,68,68,.35)}
+  .danger-zone h3{color:#fca5a5}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);
     color:#04220f;padding:12px 22px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:.3s}
   .toast.show{opacity:1}
@@ -152,9 +159,9 @@
     <div class="brand">🛡️ AM Kids</div>
     <nav class="nav">
       <a class="active" onclick="showPage('customers')">👥 לקוחות</a>
-      <a class="soon" onclick="soon()">💳 קרדיטים</a>
-      <a class="soon" onclick="soon()">🔗 חיבורים בקוד</a>
-      <a class="soon" onclick="soon()">📎 קישורים</a>
+      <a class="soon" onclick="soon()">💳 קרדיטים <small>(בקרוב)</small></a>
+      <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
+      <a class="soon" onclick="soon()">📎 קישורים <small>(בקרוב)</small></a>
     </nav>
   </aside>
   <main>
@@ -227,61 +234,81 @@
       </div>
 
       <div class="grpcard">
-        <h3>הגדרות חסימה ומנוי</h3>
+        <h3>🎛️ שליטה במכשיר</h3>
+        <p class="cardnote">כל שינוי כאן נכנס לתוקף כשהמכשיר מסתנכרן עם השרת
+          (בדרך-כלל תוך דקה). <b>סנכרון אחרון: <span id="d-lastsync">—</span></b></p>
         <div class="grid">
-          <div class="f"><label>דרגה (חסימת מכשיר)</label>
-            <select id="d-status"><option value="active">פתוח</option><option value="blocked">חסום</option><option value="pending">ממתין</option></select>
+
+          <div class="f"><label>דרגת חסימה</label>
+            <select id="d-status"><option value="active">פתוח — הכל עובד</option><option value="blocked">חסום — נעילה מלאה</option><option value="pending">ממתין</option></select>
+            <div class="hint"><b>חסום</b> = מסך נעילה על כל האפליקציה; הילד לא יכול להשתמש בכלום עד שתפתח.</div>
           </div>
-          <div class="f"><label>AM Message</label>
-            <select id="d-am"><option value="off">סגור</option><option value="on">פתוח</option></select>
+
+          <div class="f"><label>נעילת מכשיר (הפיכה)</label>
+            <select id="d-lock"><option value="locked">🔒 נעול (ברירת מחדל)</option><option value="open">🔓 פתוח לאיפוס</option></select>
+            <div class="hint"><b>נעול</b> = אי-אפשר לאפס/להסיר את האפליקציה. <b>פתוח</b> = אתה מאפשר לאפס את המכשיר מההגדרות (למשל לפני מכירה) — <u>המכשיר נשאר מנוהל ואפשר לנעול בחזרה בכל רגע</u>. (עובד רק במכשיר Device Owner.)</div>
           </div>
-          <div class="f"><label>נתב אלחוטי (שיתוף אינטרנט)</label>
-            <select id="d-tether"><option value="open">פתוח</option><option value="blocked">חסום</option></select>
-          </div>
-          <div class="f"><label>הפעלת לוגים</label>
-            <select id="d-logs"><option value="off">סגור</option><option value="on">פתוח</option></select>
-          </div>
+
           <div class="f"><label>סטטוס מנוי</label>
             <select id="d-plan">
-              <option value="basic_active">AM Kids בסיסי - פעיל</option>
-              <option value="premium_active">AM Kids פרימיום - פעיל</option>
+              <option value="basic_active">AM Kids בסיסי — פעיל</option>
+              <option value="premium_active">AM Kids פרימיום — פעיל</option>
               <option value="trial">תקופת ניסיון</option>
               <option value="cancelled">מנוי בוטל</option>
             </select>
+            <div class="hint"><b>מנוי בוטל</b> = כל האפליקציה ננעלת עם הודעת "המנוי אינו פעיל — פנה לספק".</div>
           </div>
+
+          <div class="f"><label>AM Message (צ'אט)</label>
+            <select id="d-am"><option value="off">סגור</option><option value="on">פתוח</option></select>
+            <div class="hint">מפעיל/מכבה את אפליקציית ההודעות במכשיר.</div>
+          </div>
+
+          <div class="f"><label>נתב אלחוטי (שיתוף אינטרנט)</label>
+            <select id="d-tether"><option value="open">פתוח</option><option value="blocked">חסום</option></select>
+            <div class="hint"><b>חסום</b> = מונע מהילד לשתף אינטרנט (Hotspot). עובד רק במכשיר Device Owner.</div>
+          </div>
+
           <div class="f"><label>מין (לאווטר AM Message)</label>
             <select id="d-gender"><option value="">—</option><option value="boy">בן 👦</option><option value="girl">בת 👧</option></select>
+            <div class="hint">קובע את אווטר ברירת המחדל בצ'אט (בן/בת).</div>
           </div>
+
           <div class="f"><label>מדיה (תמונות/פרופיל)</label>
             <select id="d-media"><option value="false">סגור (אווטר בלבד)</option><option value="true">פתוח</option></select>
+            <div class="hint"><b>פתוח</b> = מאפשר תמונות פרופיל/מדיה אמיתיות בצ'אט במקום אווטר בלבד.</div>
           </div>
-        </div>
-      </div>
 
-      <div class="grpcard">
-        <h3>⚡ שליטה מרחוק (המנהל תמיד בשליטה)</h3>
-        <p style="color:var(--muted);font-size:12.5px;margin:0 0 14px">
-          פקודות אלו נשלחות למכשיר ומבוצעות תוך דקה (בפעם הבאה שהוא מסתנכרן) —
-          גם אם המכשיר חסום או במצב Device Owner.</p>
-        <div class="ctrls">
-          <button class="b-ctrl warn" onclick="sendCommand('release')"
-            title="מסיר את Device Owner וכל המדיניות — אפשר להסיר/לאפס את המכשיר ידנית">
-            🔓 שחרר מכשיר (בטל Device Owner)</button>
-          <button class="b-ctrl" onclick="sendCommand('reboot')"
-            title="מאתחל את המכשיר מרחוק">
-            🔄 אתחל מכשיר</button>
-          <button class="b-ctrl danger" onclick="sendCommand('wipe')"
-            title="איפוס להגדרות יצרן — מוחק את כל תוכן המכשיר">
-            🗑️ אפס להגדרות יצרן</button>
         </div>
       </div>
 
       <div class="savebar">
-        <button class="b-save" onclick="saveDevice()">שמירה וחזרה</button>
+        <button class="b-save" onclick="saveDevice()">💾 שמירה וחזרה</button>
         <button class="b-cancel" onclick="showPage('customers')">ביטול</button>
-        <button class="b-reset" onclick="resetIdentity()"
-          title="אם שני מכשירים פיזיים חולקים את הרשומה הזו — יפצל אותם לשני מכשירים עצמאיים">
-          ♻️ אפס זהות (פיצול משוכפלים)</button>
+      </div>
+
+      <div class="grpcard danger-zone">
+        <h3>⚠️ פעולות מיוחדות — היזהר, חלקן בלתי-הפיכות</h3>
+        <p class="cardnote">הפקודות נשלחות מיד ומבוצעות כשהמכשיר מסתנכרן (עד דקה),
+          גם אם הוא חסום. אין צורך ללחוץ "שמירה".</p>
+        <div class="ctrls">
+          <div class="ctrl-item">
+            <button class="b-ctrl" onclick="sendCommand('reboot')">🔄 אתחל מכשיר</button>
+            <div class="hint">מפעיל מחדש את המכשיר. בטוח והפיך.</div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl" onclick="resetIdentity()">♻️ אפס זהות</button>
+            <div class="hint">אם שני מכשירים פיזיים חולקים את הרשומה הזו — מפצל אותם לשני מכשירים עצמאיים. הרשומה תתרוקן.</div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl warn" onclick="sendCommand('release')">🔓 שחרור ניהול לצמיתות</button>
+            <div class="hint"><b>בלתי-הפיך מרחוק!</b> מסיר את הניהול (Device Owner) לגמרי. לא תוכל לנעול בחזרה מהדשבורד — רק בחיבור פיזי דרך ADB. השתמש רק לפני מכירה/גריטה של מכשיר. <u>לפתיחה זמנית לאיפוס — השתמש ב"נעילת מכשיר → פתוח" למעלה במקום.</u></div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl danger" onclick="sendCommand('wipe')">🗑️ איפוס להגדרות יצרן</button>
+            <div class="hint"><b>בלתי-הפיך!</b> מוחק את כל תוכן המכשיר וחוזר להגדרות יצרן.</div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -424,9 +451,10 @@ function openDetail(id){
   const loc=cfg.last_location
   $('d-loc').value = (loc&&loc.lat!=null)?`${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)} (${fmt(loc.at)})`:'—'
   $('d-status').value=d.status||'active'
+  $('d-lock').value=cfg.lock||'locked'
+  $('d-lastsync').textContent=fmt(d.last_seen)
   $('d-am').value = SUBS[d.id]==='active'?'on':'off'
   $('d-tether').value=cfg.tethering||'open'
-  $('d-logs').value=cfg.logs||'off'
   $('d-plan').value=cfg.plan||'basic_active'
   $('d-gender').value=cfg.gender||''
   $('d-media').value = cfg.media===true?'true':'false'
@@ -448,10 +476,13 @@ async function resetIdentity(){
 // ── שליטה מרחוק: שולח פקודה חד-פעמית ל-config.command עם nonce ──
 async function sendCommand(type){
   if(!CURRENT) return
-  const label = {release:'לשחרר את המכשיר (ביטול Device Owner)',
+  const label = {release:'לשחרר את הניהול לצמיתות (הסרת Device Owner)',
     reboot:'לאתחל את המכשיר', wipe:'לאפס את המכשיר להגדרות יצרן (מחיקת כל התוכן!)'}[type]
   const who = CURRENT.customer_name||CURRENT.model||'—'
   if(!confirm('בטוח '+label+'?\n\nמכשיר: '+who+'\nהפעולה תתבצע תוך דקה, בפעם הבאה שהמכשיר יסתנכרן.')) return
+  if(type==='release' && !confirm('אזהרה: שחרור ניהול הוא בלתי-הפיך מרחוק!\n\n'
+    +'לא תוכל לנעול את המכשיר בחזרה מהדשבורד — רק בחיבור פיזי דרך ADB.\n'
+    +'אם אתה רק רוצה לאפשר איפוס זמנית — בטל וסמן "נעילת מכשיר → פתוח" במקום.\n\nלהמשיך בשחרור הסופי?')) return
   if(type==='wipe' && !confirm('אזהרה אחרונה: איפוס להגדרות יצרן מוחק את כל תוכן המכשיר ואינו הפיך. להמשיך?')) return
   const cfg={...(CURRENT.config||{}), command:{type, nonce:String(Date.now())}}
   const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
@@ -471,7 +502,7 @@ async function saveDevice(){
   cfg.notes=$('d-notes').value.trim()
   cfg.renew=$('d-renew').value
   cfg.tethering=$('d-tether').value
-  cfg.logs=$('d-logs').value
+  cfg.lock=$('d-lock').value
   cfg.plan=$('d-plan').value
   cfg.gender=$('d-gender').value
   cfg.media=$('d-media').value==='true'
