@@ -3,89 +3,358 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AM Kids — ניהול מכשירים</title>
+<title>AM Kids — מערכת ניהול לקוחות</title>
 <style>
   :root{ --bg:#0F172A; --card:#1E293B; --card2:#243244; --line:#334155;
     --txt:#E2E8F0; --muted:#94A3B8; --ok:#22C55E; --block:#EF4444;
-    --accent:#38BDF8; --amber:#F59E0B; }
+    --accent:#38BDF8; --amber:#F59E0B; --pri:#6366F1; }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,"SF Hebrew","Segoe UI",system-ui,Arial;
     background:var(--bg);color:var(--txt);line-height:1.5}
-  header{padding:16px 22px;background:var(--card);border-bottom:1px solid var(--line);
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
-  h1{font-size:19px;margin:0;font-weight:800}
-  .muted{color:var(--muted);font-size:13px}
+  a{color:var(--accent)}
+  .hide{display:none!important}
+
+  /* ── LOGIN ── */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .loginbox{background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:34px 30px;width:100%;max-width:400px}
+  .loginbox h1{font-size:23px;margin:0 0 4px;font-weight:800}
+  .loginbox p{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+  .fld input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:11px 13px;border-radius:10px;font-size:15px}
+  .btn{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:12px 16px;
+    font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:inherit}
+  .btn:disabled{opacity:.6}
+  .err{color:#FCA5A5;font-size:13px;margin-top:10px;min-height:18px}
+  .row-between{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-top:4px}
+
+  /* ── APP ── */
+  #app{display:flex;min-height:100vh}
+  aside{width:210px;background:var(--card);border-left:1px solid var(--line);padding:18px 12px;
+    position:sticky;top:0;height:100vh;flex-shrink:0}
+  .brand{font-weight:800;font-size:17px;padding:6px 10px 16px;display:flex;align-items:center;gap:8px}
+  .nav a{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
+    color:var(--txt);text-decoration:none;font-size:14.5px;margin-bottom:4px;cursor:pointer}
+  .nav a.active{background:rgba(99,102,241,.18);color:#c7d2fe}
+  .nav a.soon{color:var(--muted)}
+  main{flex:1;min-width:0}
+  header.top{padding:14px 22px;background:var(--card);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  .op{display:flex;align-items:center;gap:8px;font-size:14px}
+  .op .code{background:var(--card2);padding:2px 8px;border-radius:6px;font-size:12px;color:var(--muted)}
   .spacer{flex:1}
   .live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);
-    animation:pulse 2s infinite}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  main{padding:22px;max-width:1180px;margin:0 auto}
-  .cfg{background:#7F1D1D;color:#FECACA;padding:12px 16px;border-radius:10px;margin-bottom:18px}
+  .b-ghost{background:var(--card2);color:var(--muted);border:1px solid var(--line);border-radius:8px;
+    padding:7px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  section.page{padding:22px;max-width:1240px;margin:0 auto}
+  h2{font-size:20px;margin:0 0 16px;font-weight:800}
 
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-  .stat .n{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
-  .stat .l{font-size:12.5px;color:var(--muted);margin-top:6px}
-  .stat.ok .n{color:var(--ok)} .stat.block .n{color:var(--block)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .stat .n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:5px}
+  .stat.ok .n{color:var(--ok)} .stat.block .n{color:var(--block)} .stat.am .n{color:var(--accent)}
 
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-  input[type=text]{background:var(--bg);border:1px solid var(--line);color:var(--txt);
-    padding:9px 12px;border-radius:9px;font-size:14px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .toolbar input{background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:9px 12px;border-radius:9px;font-size:14px;flex:1;min-width:220px}
   .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
-  table{width:100%;border-collapse:collapse;min-width:760px}
+  table{width:100%;border-collapse:collapse;min-width:820px}
   th,td{padding:12px 14px;text-align:right;border-bottom:1px solid var(--line);font-size:13.5px;white-space:nowrap}
-  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  th{color:var(--muted);font-weight:600;font-size:12px}
   tr:last-child td{border-bottom:none}
+  tbody tr{cursor:pointer} tbody tr:hover{background:rgba(148,163,184,.06)}
   .pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;display:inline-block}
   .active{background:rgba(34,197,94,.15);color:var(--ok)}
   .blocked{background:rgba(239,68,68,.15);color:var(--block)}
   .on{background:rgba(56,189,248,.16);color:var(--accent)}
   .off{background:rgba(148,163,184,.16);color:var(--muted)}
-  button{border:0;border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:700;
-    cursor:pointer;color:#fff;font-family:inherit}
-  .b-block{background:var(--block)} .b-open{background:var(--ok)}
-  .b-sub{background:var(--accent);color:#06283a} .b-unsub{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
-  .edit{cursor:pointer;border-bottom:1px dashed var(--muted)}
   .empty{padding:30px;text-align:center;color:var(--muted)}
+  .pager{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:14px;color:var(--muted);font-size:13px}
+  .pager button{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:8px;
+    padding:5px 11px;cursor:pointer;font-family:inherit}
+
+  /* ── DETAIL ── */
+  .backlink{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:14px;display:inline-block}
+  .grpcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .grpcard h3{font-size:15px;color:var(--accent);margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  .f label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .f input,.f select,.f textarea{width:100%;background:var(--bg);border:1px solid var(--line);
+    color:var(--txt);padding:9px 11px;border-radius:9px;font-size:14px;font-family:inherit}
+  .f input:disabled{color:var(--muted);opacity:.8}
+  .f.ro input{background:transparent;border-color:transparent;padding-right:0}
+  .savebar{display:flex;gap:10px;justify-content:flex-start;position:sticky;bottom:0;
+    background:linear-gradient(transparent,var(--bg) 40%);padding:16px 0}
+  .b-save{background:var(--ok);color:#04220f} .b-cancel{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+  .b-reset{background:var(--amber);color:#3a2500}
+  .b-save,.b-cancel,.b-reset{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+  .hint b{color:#cbd5e1}
+  .cardnote{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .cardnote b{color:#cbd5e1}
+  .ctrls{display:flex;gap:14px;flex-wrap:wrap}
+  .ctrl-item{flex:1;min-width:220px;max-width:340px}
+  .b-ctrl{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-size:14px;
+    font-weight:700;cursor:pointer;font-family:inherit;background:var(--card2);color:var(--txt)}
+  .b-ctrl.warn{background:rgba(245,158,11,.15);border-color:var(--amber);color:#fcd34d}
+  .b-ctrl.danger{background:rgba(239,68,68,.15);border-color:var(--block);color:#fca5a5}
+  .danger-zone{border-color:rgba(239,68,68,.35)}
+  .danger-zone h3{color:#fca5a5}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);
+    color:#04220f;padding:12px 22px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:.3s}
+  .toast.show{opacity:1}
+
+  /* ── מובייל ── */
+  @media (max-width:760px){
+    #app{flex-direction:column}
+    aside{width:100%;height:auto;position:static;border-left:none;
+      border-bottom:1px solid var(--line);padding:10px 12px}
+    .brand{padding:4px 6px 10px}
+    .nav{display:flex;flex-wrap:wrap;gap:6px}
+    .nav a{margin:0;padding:8px 12px;font-size:13.5px}
+    header.top{flex-wrap:wrap;gap:8px;padding:12px 14px}
+    header.top .live{display:none}
+    .op{font-size:13px}
+    section.page{padding:14px}
+    h2{font-size:18px}
+    .stats{grid-template-columns:repeat(2,1fr);gap:10px}
+    .stat .n{font-size:22px}
+    .toolbar input{min-width:0}
+    .grid{grid-template-columns:1fr}
+    table{min-width:0;width:100%}
+    .mhide{display:none}
+    .savebar{flex-wrap:wrap}
+    .b-save,.b-cancel{flex:1}
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>🛡️ AM Kids — ניהול מכשירים</h1>
-  <span class="muted" id="count"></span>
-  <div class="spacer"></div>
-  <div class="live"><span class="dot"></span>מתעדכן אוטומטית</div>
-</header>
-<main>
-  <div id="needcfg" class="cfg" style="display:none">
-    ⚠️ יש למלא <code>SUPABASE_URL</code> ו-<code>SUPABASE_ANON_KEY</code> בראש הקובץ.
-  </div>
 
-  <div class="stats">
-    <div class="stat"><div class="n" id="s-total">0</div><div class="l">מכשירים בסך הכל</div></div>
-    <div class="stat ok"><div class="n" id="s-active">0</div><div class="l">פעילים</div></div>
-    <div class="stat block"><div class="n" id="s-blocked">0</div><div class="l">חסומים</div></div>
-  </div>
+<!-- ═══ LOGIN ═══ -->
+<div id="login">
+  <form class="loginbox" onsubmit="doLogin(event)">
+    <h1>כניסה למערכת</h1>
+    <p>ניהול לקוחות AM Kids</p>
+    <div class="fld"><label>אימייל</label><input id="li-email" type="email" autocomplete="username" required></div>
+    <div class="fld"><label>סיסמה</label><input id="li-pass" type="password" autocomplete="current-password" required></div>
+    <div class="row-between">
+      <label style="color:var(--muted);cursor:pointer"><input id="li-remember" type="checkbox" checked style="width:auto"> זכור אותי</label>
+      <a onclick="forgotPass()">שכחת סיסמה?</a>
+    </div>
+    <div style="height:14px"></div>
+    <button class="btn" id="li-btn" type="submit">כניסה</button>
+    <div class="err" id="li-err"></div>
+  </form>
+</div>
 
-  <div class="row">
-    <input type="text" id="search" placeholder="חיפוש לפי טלפון / דגם / שם…" style="flex:1;min-width:220px" oninput="render()">
-    <button class="b-open" onclick="load()">רענן</button>
-  </div>
+<!-- ═══ APP ═══ -->
+<div id="app" class="hide">
+  <aside>
+    <div class="brand">🛡️ AM Kids</div>
+    <nav class="nav">
+      <a id="nav-customers" class="active" onclick="showPage('customers')">👥 לקוחות</a>
+      <a id="nav-devices" onclick="showPage('devices')">📱 ניהול מכשירים</a>
+      <a class="soon" onclick="soon()">💳 קרדיטים <small>(בקרוב)</small></a>
+      <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
+      <a class="soon" onclick="soon()">📎 קישורים <small>(בקרוב)</small></a>
+    </nav>
+  </aside>
+  <main>
+    <header class="top">
+      <div class="op">👤 <span id="op-name">—</span> <span class="code" id="op-code"></span></div>
+      <div class="spacer"></div>
+      <div class="live"><span class="dot"></span>מתעדכן אוטומטית</div>
+      <button class="b-ghost" onclick="logout()">יציאה</button>
+    </header>
 
-  <div class="tablewrap">
-    <table>
-      <thead><tr>
-        <th>דגם</th><th>שם לקוח</th><th>טלפון</th><th>גרסה</th><th>נראה</th><th>מיקום</th>
-        <th>סטטוס</th><th>AM Message</th><th>פרופיל / מדיה</th><th>פעולות</th>
-      </tr></thead>
-      <tbody id="rows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
-    </table>
-  </div>
-  <p class="muted" style="margin-top:12px">
-    "חסום" נועל את המכשיר בסנכרון הבא. "הפעל AM Message" פותח את הצ'אט למכשיר (מנוי חודשי).
-  </p>
-</main>
+    <!-- Customer list -->
+    <section class="page" id="page-customers">
+      <h2>לקוחות</h2>
+      <div class="stats">
+        <div class="stat"><div class="n" id="s-total">0</div><div class="l">סה״כ מכשירים</div></div>
+        <div class="stat ok"><div class="n" id="s-active">0</div><div class="l">פעילים</div></div>
+        <div class="stat block"><div class="n" id="s-blocked">0</div><div class="l">חסומים</div></div>
+        <div class="stat am"><div class="n" id="s-am">0</div><div class="l">AM Message פעיל</div></div>
+      </div>
+      <div class="toolbar">
+        <input id="search" placeholder="חיפוש: שם / טלפון / דגם / מזהה…" oninput="render()">
+        <button class="b-ghost" onclick="loadDevices()">רענן</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>שם</th><th>טלפון</th><th class="mhide">תאריך חיבור</th><th>מכשיר</th>
+            <th class="mhide">אנדרואיד</th><th class="mhide">גרסה</th><th>מיקום</th>
+            <th class="mhide">מזהה</th><th>פעילות</th><th>סטטוס</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager" id="pager"></div>
+    </section>
+
+    <!-- Device management (quick actions) -->
+    <section class="page hide" id="page-devices">
+      <h2>ניהול מכשירים</h2>
+      <div class="stats">
+        <div class="stat"><div class="n" id="ds-total">0</div><div class="l">סה״כ מכשירים</div></div>
+        <div class="stat ok"><div class="n" id="ds-active">0</div><div class="l">פעילים</div></div>
+        <div class="stat block"><div class="n" id="ds-blocked">0</div><div class="l">חסומים</div></div>
+        <div class="stat am"><div class="n" id="ds-am">0</div><div class="l">AM Message פעיל</div></div>
+      </div>
+      <div class="toolbar">
+        <input id="dsearch" placeholder="חיפוש: שם / טלפון / דגם…" oninput="renderDevices()">
+        <button class="b-ghost" onclick="loadDevices()">רענן</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>דגם</th><th>שם</th><th class="mhide">טלפון</th><th class="mhide">גרסה</th>
+            <th>נראה</th><th>מיקום</th><th>סטטוס</th><th>AM</th><th>פעולות</th>
+          </tr></thead>
+          <tbody id="drows"><tr><td colspan="9" class="empty">טוען…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Customer detail -->
+    <section class="page hide" id="page-detail">
+      <span class="backlink" onclick="showPage('customers')">→ חזרה לרשימה</span>
+      <h2 id="d-title">כרטיס לקוח</h2>
+
+      <div class="grpcard">
+        <h3>פרטי משתמש</h3>
+        <div class="grid">
+          <div class="f"><label>שם הלקוח</label><input id="d-name"></div>
+          <div class="f"><label>טלפון</label><input id="d-phone"></div>
+          <div class="f"><label>טלפון הורה לעדכונים</label><input id="d-parentphone"></div>
+          <div class="f"><label>דוא״ל</label><input id="d-email"></div>
+          <div class="f"><label>אמצעי תשלום</label><input id="d-payment"></div>
+          <div class="f"><label>מיקום לקוח</label>
+            <select id="d-region"><option value="">—</option><option>ישראל</option><option>אירופה</option><option>ארה״ב</option><option>חו״ל</option></select>
+          </div>
+          <div class="f"><label>הערות</label><input id="d-notes"></div>
+          <div class="f ro"><label>מזהה לקוח</label><input id="d-hash" disabled></div>
+        </div>
+      </div>
+
+      <div class="grpcard">
+        <h3>פרטי המכשיר</h3>
+        <div class="grid">
+          <div class="f ro"><label>דגם</label><input id="d-model" disabled></div>
+          <div class="f ro"><label>גרסת אנדרואיד</label><input id="d-android" disabled></div>
+          <div class="f ro"><label>גרסת אפליקציה</label><input id="d-appver" disabled></div>
+          <div class="f ro"><label>תאריך חיבור ראשוני</label><input id="d-first" disabled></div>
+          <div class="f ro"><label>סנכרון אחרון</label><input id="d-last" disabled></div>
+          <div class="f"><label>תאריך חידוש מנוי</label><input id="d-renew" type="date"></div>
+          <div class="f ro"><label>מיקום נוכחי</label><input id="d-loc" disabled></div>
+        </div>
+      </div>
+
+      <div class="grpcard">
+        <h3>🎛️ שליטה במכשיר</h3>
+        <p class="cardnote">כל שינוי כאן נכנס לתוקף כשהמכשיר מסתנכרן עם השרת
+          (בדרך-כלל תוך דקה). <b>סנכרון אחרון: <span id="d-lastsync">—</span></b></p>
+        <div class="grid">
+
+          <div class="f"><label>דרגת חסימה</label>
+            <select id="d-status"><option value="active">פתוח — הכל עובד</option><option value="blocked">חסום — נעילה מלאה</option><option value="pending">ממתין</option></select>
+            <div class="hint"><b>חסום</b> = מסך נעילה על כל האפליקציה; הילד לא יכול להשתמש בכלום עד שתפתח.</div>
+          </div>
+
+          <div class="f"><label>נעילת מכשיר (הפיכה)</label>
+            <select id="d-lock"><option value="locked">🔒 נעול (ברירת מחדל)</option><option value="open">🔓 פתוח לאיפוס</option></select>
+            <div class="hint"><b>נעול</b> = אי-אפשר לאפס/להסיר את האפליקציה. <b>פתוח</b> = אתה מאפשר לאפס את המכשיר מההגדרות (למשל לפני מכירה) — <u>המכשיר נשאר מנוהל ואפשר לנעול בחזרה בכל רגע</u>. (עובד רק במכשיר Device Owner.)</div>
+          </div>
+
+          <div class="f"><label>סטטוס מנוי</label>
+            <select id="d-plan">
+              <option value="basic_active">AM Kids בסיסי — פעיל</option>
+              <option value="premium_active">AM Kids פרימיום — פעיל</option>
+              <option value="trial">תקופת ניסיון</option>
+              <option value="cancelled">מנוי בוטל</option>
+            </select>
+            <div class="hint"><b>מנוי בוטל</b> = כל האפליקציה ננעלת עם הודעת "המנוי אינו פעיל — פנה לספק".</div>
+          </div>
+
+          <div class="f"><label>AM Message (צ'אט)</label>
+            <select id="d-am"><option value="off">סגור</option><option value="on">פתוח</option></select>
+            <div class="hint">מפעיל/מכבה את אפליקציית ההודעות במכשיר.</div>
+          </div>
+
+          <div class="f"><label>נתב אלחוטי (שיתוף אינטרנט)</label>
+            <select id="d-tether"><option value="open">פתוח</option><option value="blocked">חסום</option></select>
+            <div class="hint"><b>חסום</b> = מונע מהילד לשתף אינטרנט (Hotspot). עובד רק במכשיר Device Owner.</div>
+          </div>
+
+          <div class="f"><label>מין (לאווטר AM Message)</label>
+            <select id="d-gender"><option value="">—</option><option value="boy">בן 👦</option><option value="girl">בת 👧</option></select>
+            <div class="hint">קובע את אווטר ברירת המחדל בצ'אט (בן/בת).</div>
+          </div>
+
+          <div class="f"><label>מדיה (תמונות/פרופיל)</label>
+            <select id="d-media"><option value="false">סגור (אווטר בלבד)</option><option value="true">פתוח</option></select>
+            <div class="hint"><b>פתוח</b> = מאפשר תמונות פרופיל/מדיה אמיתיות בצ'אט במקום אווטר בלבד.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="grpcard">
+        <h3>🧪 הקשחת אבטחה — שלב 1 (בהרצה הדרגתית)</h3>
+        <p class="cardnote">מפעיל הזדהות מאובטחת פר-מכשיר. הפעל <b>תחילה על מכשיר בדיקה אחד</b>,
+          ודא שהצ'אט והרישוי עדיין עובדים, ורק אז על שאר הצי. דורש אפליקציה 3.9.33 ומעלה.</p>
+        <div class="grid">
+          <div class="f"><label>הזדהות מאובטחת (JWT)</label>
+            <select id="d-auth"><option value="off">כבוי (כמו היום)</option><option value="on">מופעל</option></select>
+            <div class="hint"><b>כבוי</b> = המכשיר עובד בדיוק כמו היום. <b>מופעל</b> = המכשיר משתמש בזהות מאומתת (הצעד לקראת נעילת השרת). שנה רק אחרי שהמכשיר עודכן ל-3.9.33.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="savebar">
+        <button class="b-save" onclick="saveDevice()">💾 שמירה וחזרה</button>
+        <button class="b-cancel" onclick="showPage('customers')">ביטול</button>
+      </div>
+
+      <div class="grpcard danger-zone">
+        <h3>⚠️ פעולות מיוחדות — היזהר, חלקן בלתי-הפיכות</h3>
+        <p class="cardnote">הפקודות נשלחות מיד ומבוצעות כשהמכשיר מסתנכרן (עד דקה),
+          גם אם הוא חסום. אין צורך ללחוץ "שמירה".</p>
+        <div class="ctrls">
+          <div class="ctrl-item">
+            <button class="b-ctrl" onclick="sendCommand('reboot')">🔄 אתחל מכשיר</button>
+            <div class="hint">מפעיל מחדש את המכשיר. בטוח והפיך.</div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl" onclick="resetIdentity()">♻️ אפס זהות</button>
+            <div class="hint">אם שני מכשירים פיזיים חולקים את הרשומה הזו — מפצל אותם לשני מכשירים עצמאיים. הרשומה תתרוקן.</div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl warn" onclick="sendCommand('release')">🔓 שחרור ניהול לצמיתות</button>
+            <div class="hint"><b>בלתי-הפיך מרחוק!</b> מסיר את הניהול (Device Owner) לגמרי. לא תוכל לנעול בחזרה מהדשבורד — רק בחיבור פיזי דרך ADB. השתמש רק לפני מכירה/גריטה של מכשיר. <u>לפתיחה זמנית לאיפוס — השתמש ב"נעילת מכשיר → פתוח" למעלה במקום.</u></div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl danger" onclick="sendCommand('wipe')">🗑️ איפוס להגדרות יצרן</button>
+            <div class="hint"><b>בלתי-הפיך!</b> מוחק את כל תוכן המכשיר וחוזר להגדרות יצרן.</div>
+          </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl danger" onclick="deleteDevice()">❌ הסר מהרשימה</button>
+            <div class="hint">מוחק את הרשומה מהדשבורד בלבד (לא נוגע במכשיר). מתאים לרשומות ישנות/כפולות. <b>אם המכשיר עדיין פעיל ומחובר — הוא יירשם מחדש בסנכרון הבא.</b></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -93,125 +362,290 @@
 const SUPABASE_URL = 'https://erigsbhjtlyjcepyllww.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaWdzYmhqdGx5amNlcHlsbHd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyOTMyODcsImV4cCI6MjA5OTg2OTI4N30.a528BbEapftJIEnIF-mQuXsWOvqI3NFhlZzjac4hUI4'
 
-const need = !SUPABASE_URL || !SUPABASE_ANON_KEY
-if (need) document.getElementById('needcfg').style.display = 'block'
-const db = need ? null : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const db = (SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true}})
+  : null
 
-let DEVICES = []      // devices joined with am_message subscription flag
-const fmt = (t) => { if(!t) return '—'; const d=new Date(t), s=(Date.now()-d)/1000;
+let DEVICES = [], SUBS = {}, PAGE = 1, PER = 12, CURRENT = null
+
+const $ = id => document.getElementById(id)
+const esc = s => (s??'').toString().replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))
+const fmt = t => { if(!t) return '—'; const d=new Date(t), s=(Date.now()-d)/1000;
   if(s<60)return 'עכשיו'; if(s<3600)return Math.floor(s/60)+' דק׳';
   if(s<86400)return Math.floor(s/3600)+' ש׳'; return d.toLocaleDateString('he-IL') }
-const esc = (s)=> (s??'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))
+const fdate = t => t ? new Date(t).toLocaleDateString('he-IL')+' '+new Date(t).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}) : '—'
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200) }
+function soon(){ toast('בקרוב 🚧') }
 
-async function load(){
-  if(!db){ document.getElementById('rows').innerHTML='<tr><td colspan="10" class="empty">לא מוגדר</td></tr>'; return }
-  const [dev, subs] = await Promise.all([
-    db.from('devices').select('*').order('last_seen',{ascending:false}).limit(500),
-    db.from('subscriptions').select('device_id,feature,status').eq('feature','am_message')
-  ])
-  if(dev.error){ document.getElementById('rows').innerHTML=`<tr><td colspan="10" class="empty">${dev.error.message}</td></tr>`; return }
-  const subMap = {}; (subs.data||[]).forEach(s=> subMap[s.device_id]=s.status)
-  DEVICES = (dev.data||[]).map(d=> ({...d, am: subMap[d.id]==='active'}))
-  // stats
-  document.getElementById('s-total').textContent = DEVICES.length
-  document.getElementById('s-active').textContent = DEVICES.filter(d=>d.status==='active').length
-  document.getElementById('s-blocked').textContent = DEVICES.filter(d=>d.status==='blocked').length
-  render()
+// ── AUTH ──
+async function doLogin(e){
+  e.preventDefault()
+  if(!db){ $('li-err').textContent='המערכת לא מוגדרת (SUPABASE_URL/KEY)'; return }
+  $('li-btn').disabled=true; $('li-err').textContent=''
+  const {error} = await db.auth.signInWithPassword({email:$('li-email').value.trim(), password:$('li-pass').value})
+  $('li-btn').disabled=false
+  if(error){ $('li-err').textContent = /invalid/i.test(error.message)?'אימייל או סיסמה שגויים':error.message; return }
+  await enterApp()
+}
+async function forgotPass(){
+  const em=$('li-email').value.trim(); if(!em){ $('li-err').textContent='הכנס אימייל קודם'; return }
+  const {error}=await db.auth.resetPasswordForEmail(em)
+  $('li-err').textContent = error ? error.message : 'נשלח מייל לאיפוס סיסמה ✓'
+}
+async function logout(){ await db.auth.signOut(); location.reload() }
+
+async function enterApp(){
+  const {data:{user}} = await db.auth.getUser()
+  if(!user) return
+  $('login').classList.add('hide'); $('app').classList.remove('hide')
+  // מפעיל לפי login_email
+  let opName = user.email, opCode = ''
+  try{
+    const {data:op} = await db.from('operators').select('name,id,role').eq('login_email',user.email).maybeSingle()
+    if(op){ opName=op.name||user.email; opCode=(op.id||'').slice(0,4) }
+  }catch(_){}
+  $('op-name').textContent=opName; $('op-code').textContent=opCode?('#'+opCode):''
+  loadDevices()
 }
 
-function render(){
-  const q = (document.getElementById('search').value||'').trim().toLowerCase()
-  const list = DEVICES.filter(d=> !q ||
+// ── DATA ──
+async function loadDevices(){
+  if(!db) return
+  const [dev,subs] = await Promise.all([
+    db.from('devices').select('*').order('last_seen',{ascending:false}).limit(1000),
+    db.from('subscriptions').select('device_id,feature,status').eq('feature','am_message')
+  ])
+  if(dev.error){ $('rows').innerHTML=`<tr><td colspan="10" class="empty">${esc(dev.error.message)}</td></tr>`; return }
+  SUBS={}; (subs.data||[]).forEach(s=> SUBS[s.device_id]=s.status)
+  DEVICES = dev.data||[]
+  $('s-total').textContent=DEVICES.length
+  $('s-active').textContent=DEVICES.filter(d=>d.status==='active').length
+  $('s-blocked').textContent=DEVICES.filter(d=>d.status==='blocked').length
+  $('s-am').textContent=DEVICES.filter(d=>SUBS[d.id]==='active').length
+  render()
+  if(!$('page-devices').classList.contains('hide')) renderDevices()
+}
+
+function filtered(){
+  const q=($('search').value||'').trim().toLowerCase()
+  return DEVICES.filter(d=> !q ||
+    (d.customer_name||'').toLowerCase().includes(q) ||
     (d.customer_phone||'').toLowerCase().includes(q) ||
     (d.model||'').toLowerCase().includes(q) ||
-    (d.customer_name||'').toLowerCase().includes(q))
-  document.getElementById('count').textContent = `${list.length} מכשירים`
-  const rows = document.getElementById('rows')
-  if(!list.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; return }
-  rows.innerHTML = list.map(d=>{
-    const blocked = d.status==='blocked'
-    const stPill = blocked ? '<span class="pill blocked">חסום</span>' : '<span class="pill active">פעיל</span>'
-    const amPill = d.am ? '<span class="pill on">פעיל</span>' : '<span class="pill off">כבוי</span>'
-    const stBtn = blocked
-      ? `<button class="b-open" onclick="setStatus('${d.id}','active')">פתח</button>`
-      : `<button class="b-block" onclick="setStatus('${d.id}','blocked')">חסום</button>`
-    const amBtn = d.am
-      ? `<button class="b-unsub" onclick="setSub('${d.id}',false)">בטל</button>`
-      : `<button class="b-sub" onclick="setSub('${d.id}',true)">הפעל</button>`
-    const cfg = d.config||{}
-    const gender = cfg.gender||''
-    const media = cfg.media===true
-    const profileCell = `
-      <select onchange="setGender('${d.id}',this.value)" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px">
-        <option value="" ${!gender?'selected':''}>מין —</option>
-        <option value="boy" ${gender==='boy'?'selected':''}>בן 👦</option>
-        <option value="girl" ${gender==='girl'?'selected':''}>בת 👧</option>
-      </select>
-      ${media
-        ? `<button class="b-unsub" onclick="setMedia('${d.id}',false)">מדיה: פתוחה</button>`
-        : `<button class="b-sub" onclick="setMedia('${d.id}',true)">מדיה: סגורה</button>`}`
-    const loc = cfg.last_location
-    const locCell = (loc && loc.lat!=null)
-      ? `<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" style="color:var(--accent);font-weight:700">📍 מפה</a>`
-        + `<div class="muted" style="font-size:11px">${fmt(loc.at)}</div>`
-      : '<span class="muted">—</span>'
+    (d.device_hash||'').toLowerCase().includes(q))
+}
+function render(){
+  const list=filtered()
+  const pages=Math.max(1,Math.ceil(list.length/PER))
+  if(PAGE>pages)PAGE=pages
+  const slice=list.slice((PAGE-1)*PER,PAGE*PER)
+  const rows=$('rows')
+  if(!slice.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; $('pager').innerHTML=''; return }
+  rows.innerHTML=slice.map(d=>{
+    const cfg=d.config||{}, loc=cfg.last_location
+    const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
+      : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
+    const locCell = (loc&&loc.lat!=null)?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" onclick="event.stopPropagation()">📍</a>`:'—'
+    return `<tr onclick="openDetail('${d.id}')">
+      <td>${esc(d.customer_name)||'—'}</td>
+      <td>${esc(d.customer_phone)||'—'}</td>
+      <td class="mhide">${d.first_seen?new Date(d.first_seen).toLocaleDateString('he-IL'):'—'}</td>
+      <td>${esc(d.model)||'—'}</td>
+      <td class="mhide">${esc(d.android_version)||'—'}</td>
+      <td class="mhide">${esc(d.app_version)||'—'}</td>
+      <td>${locCell}</td>
+      <td class="mhide" style="color:var(--muted);font-size:12px">${esc((d.device_hash||'').slice(0,10))}</td>
+      <td>${fmt(d.last_seen)}</td>
+      <td>${st}</td>
+    </tr>`
+  }).join('')
+  $('pager').innerHTML = pages>1 ? `
+    <button onclick="PAGE=Math.max(1,PAGE-1);render()">‹</button>
+    <span>עמוד ${PAGE} מתוך ${pages} · ${list.length} לקוחות</span>
+    <button onclick="PAGE=Math.min(${pages},PAGE+1);render()">›</button>` : `<span>${list.length} לקוחות</span>`
+}
+
+// ── DETAIL ──
+function showPage(p){
+  ;['customers','devices','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'))
+  if(p==='customers') $('nav-customers').classList.add('active')
+  if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
+  if(p==='detail') $('nav-customers').classList.add('active')
+}
+
+// ── DEVICE MANAGEMENT (quick actions) ──
+function renderDevices(){
+  $('ds-total').textContent=DEVICES.length
+  $('ds-active').textContent=DEVICES.filter(d=>d.status==='active').length
+  $('ds-blocked').textContent=DEVICES.filter(d=>d.status==='blocked').length
+  $('ds-am').textContent=DEVICES.filter(d=>SUBS[d.id]==='active').length
+  const q=($('dsearch').value||'').trim().toLowerCase()
+  const list=DEVICES.filter(d=> !q ||
+    (d.customer_name||'').toLowerCase().includes(q) ||
+    (d.customer_phone||'').toLowerCase().includes(q) ||
+    (d.model||'').toLowerCase().includes(q))
+  const rows=$('drows')
+  if(!list.length){ rows.innerHTML='<tr><td colspan="9" class="empty">אין מכשירים</td></tr>'; return }
+  rows.innerHTML=list.map(d=>{
+    const cfg=d.config||{}, loc=cfg.last_location, am=SUBS[d.id]==='active'
+    const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
+      : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
+    const locCell=(loc&&loc.lat!=null)?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank">📍</a>`:'—'
+    const stBtn = d.status==='blocked'
+      ? `<button class="b-ghost" onclick="qStatus('${d.id}','active')">פתח</button>`
+      : `<button class="b-ghost" onclick="qStatus('${d.id}','blocked')">חסום</button>`
+    const amBtn = `<button class="b-ghost" onclick="qSub('${d.id}',${am?'false':'true'})">${am?'AM ✓':'AM ✕'}</button>`
     return `<tr>
       <td>${esc(d.model)||'—'}</td>
-      <td><span class="edit" onclick="editField('${d.id}','customer_name','שם לקוח')">${esc(d.customer_name)||'הוסף'}</span></td>
-      <td><span class="edit" onclick="editField('${d.id}','customer_phone','טלפון')">${esc(d.customer_phone)||'הוסף'}</span></td>
-      <td>${esc(d.app_version)||'—'}</td>
+      <td style="cursor:pointer;color:var(--accent)" onclick="openDetail('${d.id}')">${esc(d.customer_name)||'—'}</td>
+      <td class="mhide">${esc(d.customer_phone)||'—'}</td>
+      <td class="mhide">${esc(d.app_version)||'—'}</td>
       <td>${fmt(d.last_seen)}</td>
       <td>${locCell}</td>
-      <td>${stPill}</td>
-      <td>${amPill} ${amBtn}</td>
-      <td>${profileCell}</td>
-      <td>${stBtn}</td>
+      <td>${st}</td>
+      <td>${amBtn}</td>
+      <td style="white-space:nowrap">${stBtn} <button class="b-ghost" onclick="openDetail('${d.id}')">כרטיס</button></td>
     </tr>`
   }).join('')
 }
-
-async function setStatus(id, status){
-  const {error} = await db.from('devices').update({status}).eq('id',id)
-  if(error) alert(error.message); else load()
+async function qStatus(id,status){
+  const {error}=await db.from('devices').update({status}).eq('id',id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('עודכן ✓'); await loadDevices()
+}
+async function qSub(id,on){
+  const now=new Date(), exp=new Date(now.getTime()+31*864e5)
+  const {error}=await db.from('subscriptions').upsert({device_id:id,feature:'am_message',
+    status:on?'active':'expired',price_agorot:1000,
+    started_at:on?now.toISOString():null,expires_at:on?exp.toISOString():null,
+    updated_at:now.toISOString()},{onConflict:'device_id,feature'})
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('עודכן ✓'); await loadDevices()
+}
+function openDetail(id){
+  const d=DEVICES.find(x=>x.id===id); if(!d) return
+  CURRENT=d; const cfg=d.config||{}
+  $('d-title').textContent = 'כרטיס לקוח — '+(d.customer_name||d.model||'—')
+  $('d-name').value=d.customer_name||''
+  $('d-phone').value=d.customer_phone||''
+  $('d-parentphone').value=cfg.parent_phone||''
+  $('d-email').value=cfg.email||''
+  $('d-payment').value=cfg.payment||''
+  $('d-region').value=cfg.region||''
+  $('d-notes').value=cfg.notes||''
+  $('d-hash').value=d.device_hash||''
+  $('d-model').value=d.model||''
+  $('d-android').value=d.android_version||''
+  $('d-appver').value=d.app_version||''
+  $('d-first').value=fdate(d.first_seen)
+  $('d-last').value=fdate(d.last_seen)
+  $('d-renew').value=cfg.renew||''
+  const loc=cfg.last_location
+  $('d-loc').value = (loc&&loc.lat!=null)?`${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)} (${fmt(loc.at)})`:'—'
+  $('d-status').value=d.status||'active'
+  $('d-lock').value=cfg.lock||'locked'
+  $('d-auth').value=cfg.auth==='on'?'on':'off'
+  $('d-lastsync').textContent=fmt(d.last_seen)
+  $('d-am').value = SUBS[d.id]==='active'?'on':'off'
+  $('d-tether').value=cfg.tethering||'open'
+  $('d-plan').value=cfg.plan||'basic_active'
+  $('d-gender').value=cfg.gender||''
+  $('d-media').value = cfg.media===true?'true':'false'
+  showPage('detail'); window.scrollTo(0,0)
 }
 
-async function editField(id, field, label){
-  const cur = (DEVICES.find(d=>d.id===id)||{})[field] || ''
-  const val = prompt(label+':', cur)
-  if(val===null) return
-  const {error} = await db.from('devices').update({[field]: val}).eq('id',id)
-  if(error) alert(error.message); else load()
+async function resetIdentity(){
+  if(!CURRENT) return
+  if(!confirm('לאפס את הזהות של "'+(CURRENT.customer_name||CURRENT.model||'—')+'"?\n\n'
+    +'כל מכשיר פיזי שמחובר לרשומה הזו ייצור מזהה חדש ויהפוך לעצמאי (הפיצול קורה תוך דקה).\n'
+    +'הרשומה הזו תתרוקן — תוכל למחוק אותה אחר כך.')) return
+  const cfg={...(CURRENT.config||{}), reset_id:String(Date.now())}
+  const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('פקודת איפוס נשלחה — המכשירים יתפצלו תוך דקה ✓')
+  showPage('customers')
 }
 
-async function setGender(id, gender){
-  const d = DEVICES.find(x=>x.id===id)||{}
-  const config = {...(d.config||{}), gender}
-  const {error} = await db.from('devices').update({config}).eq('id',id)
-  if(error) alert(error.message); else load()
+// ── שליטה מרחוק: שולח פקודה חד-פעמית ל-config.command עם nonce ──
+async function sendCommand(type){
+  if(!CURRENT) return
+  const label = {release:'לשחרר את הניהול לצמיתות (הסרת Device Owner)',
+    reboot:'לאתחל את המכשיר', wipe:'לאפס את המכשיר להגדרות יצרן (מחיקת כל התוכן!)'}[type]
+  const who = CURRENT.customer_name||CURRENT.model||'—'
+  if(!confirm('בטוח '+label+'?\n\nמכשיר: '+who+'\nהפעולה תתבצע תוך דקה, בפעם הבאה שהמכשיר יסתנכרן.')) return
+  if(type==='release' && !confirm('אזהרה: שחרור ניהול הוא בלתי-הפיך מרחוק!\n\n'
+    +'לא תוכל לנעול את המכשיר בחזרה מהדשבורד — רק בחיבור פיזי דרך ADB.\n'
+    +'אם אתה רק רוצה לאפשר איפוס זמנית — בטל וסמן "נעילת מכשיר → פתוח" במקום.\n\nלהמשיך בשחרור הסופי?')) return
+  if(type==='wipe' && !confirm('אזהרה אחרונה: איפוס להגדרות יצרן מוחק את כל תוכן המכשיר ואינו הפיך. להמשיך?')) return
+  const cfg={...(CURRENT.config||{}), command:{type, nonce:String(Date.now())}}
+  const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  CURRENT.config=cfg
+  toast('פקודה נשלחה — תתבצע תוך דקה ✓')
 }
 
-async function setMedia(id, on){
-  const d = DEVICES.find(x=>x.id===id)||{}
-  const config = {...(d.config||{}), media:on}
-  const {error} = await db.from('devices').update({config}).eq('id',id)
-  if(error) alert(error.message); else load()
+// ── מחיקת רשומת מכשיר מהדשבורד (לא נוגע במכשיר הפיזי) ──
+async function deleteDevice(){
+  if(!CURRENT) return
+  const who = CURRENT.customer_name||CURRENT.model||'—'
+  if(!confirm('להסיר את "'+who+'" מהרשימה?\n\n'
+    +'מוחק את הרשומה מהדשבורד בלבד — לא נוגע במכשיר עצמו.\n'
+    +'אם המכשיר עדיין פעיל ומחובר לאינטרנט, הוא יירשם מחדש בסנכרון הבא.')) return
+  const {error}=await db.from('devices').delete().eq('id',CURRENT.id)
+  if(error){
+    toast('שגיאה: '+error.message+(/(policy|permission|denied)/i.test(error.message)?' — צריך להריץ את מדיניות המחיקה (ראו הצ׳אט)':''))
+    return
+  }
+  toast('הוסר מהרשימה ✓')
+  await loadDevices(); showPage('customers')
 }
 
-async function setSub(deviceId, on){
-  const now = new Date()
-  const expires = new Date(now.getTime()+31*864e5).toISOString()
-  const row = { device_id:deviceId, feature:'am_message',
-    status: on?'active':'expired', price_agorot:1000,
-    started_at: on? now.toISOString(): null, expires_at: on? expires: null,
-    updated_at: now.toISOString() }
-  const {error} = await db.from('subscriptions').upsert(row, {onConflict:'device_id,feature'})
-  if(error) alert(error.message); else load()
+async function saveDevice(){
+  if(!CURRENT) return
+  const d=CURRENT, cfg={...(d.config||{})}
+  cfg.parent_phone=$('d-parentphone').value.trim()
+  cfg.email=$('d-email').value.trim()
+  // הערת אבטחה: לא שומרים סיסמת הורה בטקסט גלוי (הוסר — ראו docs/SECURITY_HARDENING.md).
+  delete cfg.parent_password
+  cfg.payment=$('d-payment').value.trim()
+  cfg.region=$('d-region').value
+  cfg.notes=$('d-notes').value.trim()
+  cfg.renew=$('d-renew').value
+  cfg.tethering=$('d-tether').value
+  cfg.lock=$('d-lock').value
+  cfg.auth=$('d-auth').value
+  cfg.plan=$('d-plan').value
+  cfg.gender=$('d-gender').value
+  cfg.media=$('d-media').value==='true'
+  const upd={ customer_name:$('d-name').value.trim(), customer_phone:$('d-phone').value.trim(),
+    status:$('d-status').value, config:cfg }
+  const {error}=await db.from('devices').update(upd).eq('id',d.id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  // AM Message subscription
+  const wantAm = $('d-am').value==='on'
+  if((SUBS[d.id]==='active')!==wantAm){
+    const now=new Date(), exp=new Date(now.getTime()+31*864e5)
+    await db.from('subscriptions').upsert({device_id:d.id,feature:'am_message',
+      status:wantAm?'active':'expired',price_agorot:1000,
+      started_at:wantAm?now.toISOString():null,expires_at:wantAm?exp.toISOString():null,
+      updated_at:now.toISOString()},{onConflict:'device_id,feature'})
+  }
+  toast('נשמר ✓')
+  await loadDevices(); showPage('customers')
 }
 
-load()
-setInterval(load, 10000)  // ריענון אוטומטי כל 10 שניות
+// ── init ──
+;(async ()=>{
+  if(!db){ $('li-err').textContent='יש למלא SUPABASE_URL ו-SUPABASE_ANON_KEY בראש הקובץ'; return }
+  const {data:{session}} = await db.auth.getSession()
+  if(session) await enterApp()
+})()
+setInterval(()=>{ if(!$('app').classList.contains('hide')) loadDevices() }, 12000)
 </script>
 </body>
 </html>
 
 <!-- deploy trigger -->
+
+<!-- retrigger -->

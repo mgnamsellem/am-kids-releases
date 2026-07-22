@@ -158,7 +158,8 @@
   <aside>
     <div class="brand">🛡️ AM Kids</div>
     <nav class="nav">
-      <a class="active" onclick="showPage('customers')">👥 לקוחות</a>
+      <a id="nav-customers" class="active" onclick="showPage('customers')">👥 לקוחות</a>
+      <a id="nav-devices" onclick="showPage('devices')">📱 ניהול מכשירים</a>
       <a class="soon" onclick="soon()">💳 קרדיטים <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">📎 קישורים <small>(בקרוב)</small></a>
@@ -196,6 +197,30 @@
         </table>
       </div>
       <div class="pager" id="pager"></div>
+    </section>
+
+    <!-- Device management (quick actions) -->
+    <section class="page hide" id="page-devices">
+      <h2>ניהול מכשירים</h2>
+      <div class="stats">
+        <div class="stat"><div class="n" id="ds-total">0</div><div class="l">סה״כ מכשירים</div></div>
+        <div class="stat ok"><div class="n" id="ds-active">0</div><div class="l">פעילים</div></div>
+        <div class="stat block"><div class="n" id="ds-blocked">0</div><div class="l">חסומים</div></div>
+        <div class="stat am"><div class="n" id="ds-am">0</div><div class="l">AM Message פעיל</div></div>
+      </div>
+      <div class="toolbar">
+        <input id="dsearch" placeholder="חיפוש: שם / טלפון / דגם…" oninput="renderDevices()">
+        <button class="b-ghost" onclick="loadDevices()">רענן</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>דגם</th><th>שם</th><th class="mhide">טלפון</th><th class="mhide">גרסה</th>
+            <th>נראה</th><th>מיקום</th><th>סטטוס</th><th>AM</th><th>פעולות</th>
+          </tr></thead>
+          <tbody id="drows"><tr><td colspan="9" class="empty">טוען…</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Customer detail -->
@@ -398,6 +423,7 @@ async function loadDevices(){
   $('s-blocked').textContent=DEVICES.filter(d=>d.status==='blocked').length
   $('s-am').textContent=DEVICES.filter(d=>SUBS[d.id]==='active').length
   render()
+  if(!$('page-devices').classList.contains('hide')) renderDevices()
 }
 
 function filtered(){
@@ -441,8 +467,61 @@ function render(){
 
 // ── DETAIL ──
 function showPage(p){
-  $('page-customers').classList.toggle('hide',p!=='customers')
-  $('page-detail').classList.toggle('hide',p!=='detail')
+  ;['customers','devices','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'))
+  if(p==='customers') $('nav-customers').classList.add('active')
+  if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
+  if(p==='detail') $('nav-customers').classList.add('active')
+}
+
+// ── DEVICE MANAGEMENT (quick actions) ──
+function renderDevices(){
+  $('ds-total').textContent=DEVICES.length
+  $('ds-active').textContent=DEVICES.filter(d=>d.status==='active').length
+  $('ds-blocked').textContent=DEVICES.filter(d=>d.status==='blocked').length
+  $('ds-am').textContent=DEVICES.filter(d=>SUBS[d.id]==='active').length
+  const q=($('dsearch').value||'').trim().toLowerCase()
+  const list=DEVICES.filter(d=> !q ||
+    (d.customer_name||'').toLowerCase().includes(q) ||
+    (d.customer_phone||'').toLowerCase().includes(q) ||
+    (d.model||'').toLowerCase().includes(q))
+  const rows=$('drows')
+  if(!list.length){ rows.innerHTML='<tr><td colspan="9" class="empty">אין מכשירים</td></tr>'; return }
+  rows.innerHTML=list.map(d=>{
+    const cfg=d.config||{}, loc=cfg.last_location, am=SUBS[d.id]==='active'
+    const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
+      : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
+    const locCell=(loc&&loc.lat!=null)?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank">📍</a>`:'—'
+    const stBtn = d.status==='blocked'
+      ? `<button class="b-ghost" onclick="qStatus('${d.id}','active')">פתח</button>`
+      : `<button class="b-ghost" onclick="qStatus('${d.id}','blocked')">חסום</button>`
+    const amBtn = `<button class="b-ghost" onclick="qSub('${d.id}',${am?'false':'true'})">${am?'AM ✓':'AM ✕'}</button>`
+    return `<tr>
+      <td>${esc(d.model)||'—'}</td>
+      <td style="cursor:pointer;color:var(--accent)" onclick="openDetail('${d.id}')">${esc(d.customer_name)||'—'}</td>
+      <td class="mhide">${esc(d.customer_phone)||'—'}</td>
+      <td class="mhide">${esc(d.app_version)||'—'}</td>
+      <td>${fmt(d.last_seen)}</td>
+      <td>${locCell}</td>
+      <td>${st}</td>
+      <td>${amBtn}</td>
+      <td style="white-space:nowrap">${stBtn} <button class="b-ghost" onclick="openDetail('${d.id}')">כרטיס</button></td>
+    </tr>`
+  }).join('')
+}
+async function qStatus(id,status){
+  const {error}=await db.from('devices').update({status}).eq('id',id)
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('עודכן ✓'); await loadDevices()
+}
+async function qSub(id,on){
+  const now=new Date(), exp=new Date(now.getTime()+31*864e5)
+  const {error}=await db.from('subscriptions').upsert({device_id:id,feature:'am_message',
+    status:on?'active':'expired',price_agorot:1000,
+    started_at:on?now.toISOString():null,expires_at:on?exp.toISOString():null,
+    updated_at:now.toISOString()},{onConflict:'device_id,feature'})
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('עודכן ✓'); await loadDevices()
 }
 function openDetail(id){
   const d=DEVICES.find(x=>x.id===id); if(!d) return
