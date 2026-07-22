@@ -235,6 +235,7 @@
           <div class="f"><label>טלפון</label><input id="d-phone"></div>
           <div class="f"><label>טלפון הורה לעדכונים</label><input id="d-parentphone"></div>
           <div class="f"><label>דוא״ל</label><input id="d-email"></div>
+          <div class="f ro"><label>קוד חנות מפעילה</label><input id="d-store" disabled></div>
           <div class="f"><label>אמצעי תשלום</label><input id="d-payment"></div>
           <div class="f"><label>מיקום לקוח</label>
             <select id="d-region"><option value="">—</option><option>ישראל</option><option>אירופה</option><option>ארה״ב</option><option>חו״ל</option></select>
@@ -531,6 +532,7 @@ function openDetail(id){
   $('d-phone').value=d.customer_phone||''
   $('d-parentphone').value=cfg.parent_phone||''
   $('d-email').value=cfg.email||''
+  $('d-store').value=cfg.store_code||''
   $('d-payment').value=cfg.payment||''
   $('d-region').value=cfg.region||''
   $('d-notes').value=cfg.notes||''
