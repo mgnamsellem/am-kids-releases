@@ -160,6 +160,7 @@
     <nav class="nav">
       <a id="nav-customers" class="active" onclick="showPage('customers')">👥 לקוחות</a>
       <a id="nav-devices" onclick="showPage('devices')">📱 ניהול מכשירים</a>
+      <a id="nav-stores" onclick="showPage('stores')">🏪 חנויות</a>
       <a class="soon" onclick="soon()">💳 קרדיטים <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">📎 קישורים <small>(בקרוב)</small></a>
@@ -219,6 +220,41 @@
             <th>נראה</th><th>מיקום</th><th>סטטוס</th><th>AM</th><th>פעולות</th>
           </tr></thead>
           <tbody id="drows"><tr><td colspan="9" class="empty">טוען…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Store management -->
+    <section class="page hide" id="page-stores">
+      <h2>חנויות</h2>
+      <p class="cardnote">כל חנות מקבלת קוד. כשהחנות מתקינה מכשיר ומזינה את הקוד בהרשמה,
+        המכשיר משויך אליה אוטומטית — ורואים כאן כמה מכשירים כל חנות הפעילה.</p>
+      <div class="toolbar">
+        <button class="b-save" style="flex:0 0 auto;padding:9px 16px" onclick="newStore()">➕ הוסף חנות</button>
+        <button class="b-ghost" onclick="loadStores()">רענן</button>
+      </div>
+      <div id="store-form" class="grpcard hide">
+        <h3 id="sf-title">חנות חדשה</h3>
+        <div class="grid">
+          <div class="f"><label>שם החנות *</label><input id="sf-name"></div>
+          <div class="f"><label>קוד חנות (4 ספרות) *</label>
+            <div style="display:flex;gap:8px">
+              <input id="sf-code" maxlength="4" inputmode="numeric" style="flex:1">
+              <button class="b-ghost" style="flex:0 0 auto" onclick="genStoreCode()">🎲 אקראי</button>
+            </div>
+          </div>
+          <div class="f"><label>טלפון</label><input id="sf-phone"></div>
+          <div class="f"><label>הערות</label><input id="sf-notes"></div>
+        </div>
+        <div class="savebar">
+          <button class="b-save" onclick="saveStore()">💾 שמירה</button>
+          <button class="b-cancel" onclick="document.getElementById('store-form').classList.add('hide')">ביטול</button>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>שם החנות</th><th>קוד</th><th class="mhide">טלפון</th><th>מכשירים</th><th>פעולות</th></tr></thead>
+          <tbody id="srows"><tr><td colspan="5" class="empty">טוען…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -286,7 +322,15 @@
 
           <div class="f"><label>AM Message (צ'אט)</label>
             <select id="d-am"><option value="off">סגור</option><option value="on">פתוח</option></select>
-            <div class="hint">מפעיל/מכבה את אפליקציית ההודעות במכשיר.</div>
+            <div class="hint">מפעיל/מכבה את כל אפליקציית ההודעות במכשיר (הכל — צ'אט ושיחות).</div>
+          </div>
+          <div class="f"><label>שיחות קוליות</label>
+            <select id="d-call"><option value="on">מאופשר</option><option value="off">חסום</option></select>
+            <div class="hint">אם ההורה לא רוצה שיחות — לחסום. (נכנס לתוקף עם מנוע השיחות.)</div>
+          </div>
+          <div class="f"><label>שיחות וידאו</label>
+            <select id="d-video"><option value="off">חסום</option><option value="on">מאופשר</option></select>
+            <div class="hint">וידאו סגור כברירת מחדל. אפשר לפתוח פר-לקוח. (נכנס לתוקף עם מנוע השיחות.)</div>
           </div>
 
           <div class="f"><label>נתב אלחוטי (שיתוף אינטרנט)</label>
@@ -406,6 +450,7 @@ async function enterApp(){
     if(op){ opName=op.name||user.email; opCode=(op.id||'').slice(0,4) }
   }catch(_){}
   $('op-name').textContent=opName; $('op-code').textContent=opCode?('#'+opCode):''
+  loadStores()
   loadDevices()
 }
 
@@ -468,11 +513,70 @@ function render(){
 
 // ── DETAIL ──
 function showPage(p){
-  ;['customers','devices','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  ;['customers','devices','stores','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
   document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'))
   if(p==='customers') $('nav-customers').classList.add('active')
   if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
+  if(p==='stores'){ $('nav-stores').classList.add('active'); renderStores() }
   if(p==='detail') $('nav-customers').classList.add('active')
+}
+
+// ── STORES (חנויות) ──
+let STORES = []
+let EDIT_STORE = null
+function storeByCode(code){ return code ? STORES.find(s=>s.code===code) : null }
+async function loadStores(){
+  if(!db) return
+  const {data,error}=await db.from('operators').select('id,name,code,config,role')
+  STORES = error ? [] : (data||[])
+  renderStores()
+}
+function renderStores(){
+  const rows=$('srows')
+  if(!STORES.length){ rows.innerHTML='<tr><td colspan="5" class="empty">אין חנויות עדיין — לחץ "הוסף חנות". (אם קופצת שגיאה — ודא שהרצת את מדיניות ה-SQL של operators)</td></tr>'; return }
+  rows.innerHTML=STORES.map(s=>{
+    const cfg=s.config||{}
+    const count=DEVICES.filter(d=>(d.config||{}).store_code===s.code).length
+    return `<tr>
+      <td>${esc(s.name)||'—'}</td>
+      <td><b style="color:var(--accent)">${esc(s.code)||'—'}</b></td>
+      <td class="mhide">${esc(cfg.phone)||'—'}</td>
+      <td>${count}</td>
+      <td><button class="b-ghost" onclick="editStore('${s.id}')">ערוך</button></td>
+    </tr>`
+  }).join('')
+}
+function newStore(){
+  EDIT_STORE=null
+  $('sf-title').textContent='חנות חדשה'
+  $('sf-name').value=''; $('sf-code').value=''; $('sf-phone').value=''; $('sf-notes').value=''
+  $('store-form').classList.remove('hide')
+}
+function editStore(id){
+  const s=STORES.find(x=>x.id===id); if(!s) return
+  EDIT_STORE=s; const cfg=s.config||{}
+  $('sf-title').textContent='עריכת חנות'
+  $('sf-name').value=s.name||''; $('sf-code').value=s.code||''
+  $('sf-phone').value=cfg.phone||''; $('sf-notes').value=cfg.notes||''
+  $('store-form').classList.remove('hide')
+}
+function genStoreCode(){
+  let c; do { c=String(Math.floor(1000+Math.random()*9000)) } while(storeByCode(c))
+  $('sf-code').value=c
+}
+async function saveStore(){
+  const name=$('sf-name').value.trim(), code=$('sf-code').value.trim()
+  if(!name || !/^\d{4}$/.test(code)){ toast('נא למלא שם וקוד בן 4 ספרות'); return }
+  const other=storeByCode(code)
+  if(other && (!EDIT_STORE || other.id!==EDIT_STORE.id)){ toast('הקוד '+code+' כבר בשימוש'); return }
+  const cfg={...((EDIT_STORE&&EDIT_STORE.config)||{}), phone:$('sf-phone').value.trim(), notes:$('sf-notes').value.trim()}
+  const row={name, code, config:cfg, role:'store'}
+  const q = EDIT_STORE
+    ? db.from('operators').update(row).eq('id',EDIT_STORE.id)
+    : db.from('operators').insert(row)
+  const {error}=await q
+  if(error){ toast('שגיאה: '+error.message); return }
+  toast('נשמר ✓'); $('store-form').classList.add('hide'); await loadStores()
 }
 
 // ── DEVICE MANAGEMENT (quick actions) ──
@@ -532,7 +636,8 @@ function openDetail(id){
   $('d-phone').value=d.customer_phone||''
   $('d-parentphone').value=cfg.parent_phone||''
   $('d-email').value=cfg.email||''
-  $('d-store').value=cfg.store_code||''
+  const _st=storeByCode(cfg.store_code)
+  $('d-store').value=(cfg.store_code||'—')+(_st?(' · '+_st.name):'')
   $('d-payment').value=cfg.payment||''
   $('d-region').value=cfg.region||''
   $('d-notes').value=cfg.notes||''
@@ -548,6 +653,8 @@ function openDetail(id){
   $('d-status').value=d.status||'active'
   $('d-lock').value=cfg.lock||'locked'
   $('d-auth').value=cfg.auth==='on'?'on':'off'
+  $('d-call').value=cfg.call==='off'?'off':'on'
+  $('d-video').value=cfg.video==='on'?'on':'off'
   $('d-lastsync').textContent=fmt(d.last_seen)
   $('d-am').value = SUBS[d.id]==='active'?'on':'off'
   $('d-tether').value=cfg.tethering||'open'
@@ -617,6 +724,8 @@ async function saveDevice(){
   cfg.tethering=$('d-tether').value
   cfg.lock=$('d-lock').value
   cfg.auth=$('d-auth').value
+  cfg.call=$('d-call').value
+  cfg.video=$('d-video').value
   cfg.plan=$('d-plan').value
   cfg.gender=$('d-gender').value
   cfg.media=$('d-media').value==='true'
