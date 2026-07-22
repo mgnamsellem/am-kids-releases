@@ -319,6 +319,10 @@
             <button class="b-ctrl danger" onclick="sendCommand('wipe')">🗑️ איפוס להגדרות יצרן</button>
             <div class="hint"><b>בלתי-הפיך!</b> מוחק את כל תוכן המכשיר וחוזר להגדרות יצרן.</div>
           </div>
+          <div class="ctrl-item">
+            <button class="b-ctrl danger" onclick="deleteDevice()">❌ הסר מהרשימה</button>
+            <div class="hint">מוחק את הרשומה מהדשבורד בלבד (לא נוגע במכשיר). מתאים לרשומות ישנות/כפולות. <b>אם המכשיר עדיין פעיל ומחובר — הוא יירשם מחדש בסנכרון הבא.</b></div>
+          </div>
         </div>
       </div>
     </section>
@@ -500,6 +504,22 @@ async function sendCommand(type){
   if(error){ toast('שגיאה: '+error.message); return }
   CURRENT.config=cfg
   toast('פקודה נשלחה — תתבצע תוך דקה ✓')
+}
+
+// ── מחיקת רשומת מכשיר מהדשבורד (לא נוגע במכשיר הפיזי) ──
+async function deleteDevice(){
+  if(!CURRENT) return
+  const who = CURRENT.customer_name||CURRENT.model||'—'
+  if(!confirm('להסיר את "'+who+'" מהרשימה?\n\n'
+    +'מוחק את הרשומה מהדשבורד בלבד — לא נוגע במכשיר עצמו.\n'
+    +'אם המכשיר עדיין פעיל ומחובר לאינטרנט, הוא יירשם מחדש בסנכרון הבא.')) return
+  const {error}=await db.from('devices').delete().eq('id',CURRENT.id)
+  if(error){
+    toast('שגיאה: '+error.message+(/(policy|permission|denied)/i.test(error.message)?' — צריך להריץ את מדיניות המחיקה (ראו הצ׳אט)':''))
+    return
+  }
+  toast('הוסר מהרשימה ✓')
+  await loadDevices(); showPage('customers')
 }
 
 async function saveDevice(){
