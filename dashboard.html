@@ -190,11 +190,11 @@
       <div class="tablewrap">
         <table>
           <thead><tr>
-            <th>שם</th><th>טלפון</th><th class="mhide">תאריך חיבור</th><th>מכשיר</th>
+            <th>מס׳</th><th>שם</th><th>טלפון</th><th class="mhide">תאריך חיבור</th><th>מכשיר</th>
             <th class="mhide">אנדרואיד</th><th class="mhide">גרסה</th><th>מיקום</th>
-            <th class="mhide">מזהה</th><th>פעילות</th><th>סטטוס</th>
+            <th class="mhide">קוד חנות</th><th>פעילות</th><th>סטטוס</th>
           </tr></thead>
-          <tbody id="rows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
+          <tbody id="rows"><tr><td colspan="11" class="empty">טוען…</td></tr></tbody>
         </table>
       </div>
       <div class="pager" id="pager"></div>
@@ -216,10 +216,10 @@
       <div class="tablewrap">
         <table>
           <thead><tr>
-            <th>דגם</th><th>שם</th><th class="mhide">טלפון</th><th class="mhide">גרסה</th>
+            <th>מס׳</th><th>דגם</th><th>שם</th><th class="mhide">טלפון</th><th class="mhide">גרסה</th>
             <th>נראה</th><th>מיקום</th><th>סטטוס</th><th>AM</th><th>פעולות</th>
           </tr></thead>
-          <tbody id="drows"><tr><td colspan="9" class="empty">טוען…</td></tr></tbody>
+          <tbody id="drows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -284,6 +284,7 @@
       <div class="grpcard">
         <h3>פרטי המכשיר</h3>
         <div class="grid">
+          <div class="f ro"><label>מספר מזהה</label><input id="d-serial" disabled style="font-weight:800;color:var(--accent)"></div>
           <div class="f ro"><label>דגם</label><input id="d-model" disabled></div>
           <div class="f ro"><label>גרסת אנדרואיד</label><input id="d-android" disabled></div>
           <div class="f ro"><label>גרסת אפליקציה</label><input id="d-appver" disabled></div>
@@ -461,7 +462,7 @@ async function loadDevices(){
     db.from('devices').select('*').order('last_seen',{ascending:false}).limit(1000),
     db.from('subscriptions').select('device_id,feature,status').eq('feature','am_message')
   ])
-  if(dev.error){ $('rows').innerHTML=`<tr><td colspan="10" class="empty">${esc(dev.error.message)}</td></tr>`; return }
+  if(dev.error){ $('rows').innerHTML=`<tr><td colspan="11" class="empty">${esc(dev.error.message)}</td></tr>`; return }
   SUBS={}; (subs.data||[]).forEach(s=> SUBS[s.device_id]=s.status)
   DEVICES = dev.data||[]
   $('s-total').textContent=DEVICES.length
@@ -486,13 +487,14 @@ function render(){
   if(PAGE>pages)PAGE=pages
   const slice=list.slice((PAGE-1)*PER,PAGE*PER)
   const rows=$('rows')
-  if(!slice.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; $('pager').innerHTML=''; return }
+  if(!slice.length){ rows.innerHTML='<tr><td colspan="11" class="empty">אין מכשירים</td></tr>'; $('pager').innerHTML=''; return }
   rows.innerHTML=slice.map(d=>{
     const cfg=d.config||{}, loc=cfg.last_location
     const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
       : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
     const locCell = (loc&&loc.lat!=null)?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" onclick="event.stopPropagation()">📍</a>`:'—'
     return `<tr onclick="openDetail('${d.id}')">
+      <td><b style="color:var(--accent)">${d.serial!=null?('#'+d.serial):'—'}</b></td>
       <td>${esc(d.customer_name)||'—'}</td>
       <td>${esc(d.customer_phone)||'—'}</td>
       <td class="mhide">${d.first_seen?new Date(d.first_seen).toLocaleDateString('he-IL'):'—'}</td>
@@ -500,7 +502,7 @@ function render(){
       <td class="mhide">${esc(d.android_version)||'—'}</td>
       <td class="mhide">${esc(d.app_version)||'—'}</td>
       <td>${locCell}</td>
-      <td class="mhide" style="color:var(--muted);font-size:12px">${esc((d.device_hash||'').slice(0,10))}</td>
+      <td class="mhide" style="color:var(--muted);font-size:12px">${esc((d.config||{}).store_code)||'—'}</td>
       <td>${fmt(d.last_seen)}</td>
       <td>${st}</td>
     </tr>`
@@ -591,7 +593,7 @@ function renderDevices(){
     (d.customer_phone||'').toLowerCase().includes(q) ||
     (d.model||'').toLowerCase().includes(q))
   const rows=$('drows')
-  if(!list.length){ rows.innerHTML='<tr><td colspan="9" class="empty">אין מכשירים</td></tr>'; return }
+  if(!list.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; return }
   rows.innerHTML=list.map(d=>{
     const cfg=d.config||{}, loc=cfg.last_location, am=SUBS[d.id]==='active'
     const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
@@ -602,6 +604,7 @@ function renderDevices(){
       : `<button class="b-ghost" onclick="qStatus('${d.id}','blocked')">חסום</button>`
     const amBtn = `<button class="b-ghost" onclick="qSub('${d.id}',${am?'false':'true'})">${am?'AM ✓':'AM ✕'}</button>`
     return `<tr>
+      <td><b style="color:var(--accent)">${d.serial!=null?('#'+d.serial):'—'}</b></td>
       <td>${esc(d.model)||'—'}</td>
       <td style="cursor:pointer;color:var(--accent)" onclick="openDetail('${d.id}')">${esc(d.customer_name)||'—'}</td>
       <td class="mhide">${esc(d.customer_phone)||'—'}</td>
@@ -632,6 +635,7 @@ function openDetail(id){
   const d=DEVICES.find(x=>x.id===id); if(!d) return
   CURRENT=d; const cfg=d.config||{}
   $('d-title').textContent = 'כרטיס לקוח — '+(d.customer_name||d.model||'—')
+  $('d-serial').value = d.serial!=null ? ('#'+d.serial) : '—'
   $('d-name').value=d.customer_name||''
   $('d-phone').value=d.customer_phone||''
   $('d-parentphone').value=cfg.parent_phone||''
