@@ -344,9 +344,13 @@
             <div class="hint">קובע את אווטר ברירת המחדל בצ'אט (בן/בת).</div>
           </div>
 
-          <div class="f"><label>מדיה (תמונות/פרופיל)</label>
-            <select id="d-media"><option value="false">סגור (אווטר בלבד)</option><option value="true">פתוח</option></select>
-            <div class="hint"><b>פתוח</b> = מאפשר תמונות פרופיל/מדיה אמיתיות בצ'אט במקום אווטר בלבד.</div>
+          <div class="f"><label>מדיה בצ'אט (תמונות/וידאו)</label>
+            <select id="d-media"><option value="false">חסום</option><option value="true">מאופשר</option></select>
+            <div class="hint">שליחה/קבלה של תמונות ווידאו בצ'אט. <b>חסום</b> = טקסט בלבד.</div>
+          </div>
+          <div class="f"><label>תמונת פרופיל</label>
+            <select id="d-profile"><option value="false">אימוג'י/אווטר בלבד</option><option value="true">תמונה אמיתית</option></select>
+            <div class="hint">אם ההורה לא רוצה תמונה אמיתית — הילד מקבל אווטר/אימוג'י במקום.</div>
           </div>
 
         </div>
@@ -665,6 +669,7 @@ function openDetail(id){
   $('d-plan').value=cfg.plan||'basic_active'
   $('d-gender').value=cfg.gender||''
   $('d-media').value = cfg.media===true?'true':'false'
+  $('d-profile').value = cfg.profile_photo===true?'true':'false'
   showPage('detail'); window.scrollTo(0,0)
 }
 
@@ -733,6 +738,7 @@ async function saveDevice(){
   cfg.plan=$('d-plan').value
   cfg.gender=$('d-gender').value
   cfg.media=$('d-media').value==='true'
+  cfg.profile_photo=$('d-profile').value==='true'
   const upd={ customer_name:$('d-name').value.trim(), customer_phone:$('d-phone').value.trim(),
     status:$('d-status').value, config:cfg }
   const {error}=await db.from('devices').update(upd).eq('id',d.id)
