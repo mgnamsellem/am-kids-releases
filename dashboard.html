@@ -339,6 +339,16 @@
             <div class="hint"><b>חסום</b> = מונע מהילד לשתף אינטרנט (Hotspot). עובד רק במכשיר Device Owner.</div>
           </div>
 
+          <div class="f"><label>Wi-Fi</label>
+            <select id="d-wifi"><option value="open">פתוח</option><option value="blocked">חסום</option></select>
+            <div class="hint"><b>חסום</b> = מכבה את ה-Wi-Fi ומונע מהילד להדליק אותו. עובד רק במכשיר Device Owner.</div>
+          </div>
+
+          <div class="f"><label>Bluetooth</label>
+            <select id="d-bt"><option value="open">פתוח</option><option value="blocked">חסום</option></select>
+            <div class="hint"><b>חסום</b> = מכבה Bluetooth לחלוטין. עובד רק במכשיר Device Owner (אנדרואיד 9+).</div>
+          </div>
+
           <div class="f"><label>מין (לאווטר AM Message)</label>
             <select id="d-gender"><option value="">—</option><option value="boy">בן 👦</option><option value="girl">בת 👧</option></select>
             <div class="hint">קובע את אווטר ברירת המחדל בצ'אט (בן/בת).</div>
@@ -666,6 +676,8 @@ function openDetail(id){
   $('d-lastsync').textContent=fmt(d.last_seen)
   $('d-am').value = SUBS[d.id]==='active'?'on':'off'
   $('d-tether').value=cfg.tethering||'open'
+  $('d-wifi').value=cfg.wifi||'open'
+  $('d-bt').value=cfg.bluetooth||'open'
   $('d-plan').value=cfg.plan||'basic_active'
   $('d-gender').value=cfg.gender||''
   $('d-media').value = cfg.media===true?'true':'false'
@@ -731,6 +743,8 @@ async function saveDevice(){
   cfg.notes=$('d-notes').value.trim()
   cfg.renew=$('d-renew').value
   cfg.tethering=$('d-tether').value
+  cfg.wifi=$('d-wifi').value
+  cfg.bluetooth=$('d-bt').value
   cfg.lock=$('d-lock').value
   cfg.auth=$('d-auth').value
   cfg.call=$('d-call').value
