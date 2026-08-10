@@ -933,7 +933,6 @@ setInterval(()=>{ if(!$('app').classList.contains('hide')) loadDevices() }, 1200
 </script>
 
 <!-- ═══ הקצאת מכשיר: QR + WebUSB/ADB ═══ -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 // קבועים — שם החבילה, רכיב ה-Device Admin, כתובת ה-APK האחרון, ה-manifest,
 // וטביעת-האצבע של תעודת החתימה (base64url של SHA-256 — ל-QR provisioning).
@@ -957,6 +956,31 @@ function provTab(w){
 }
 
 // ── QR provisioning ──
+// טוען סקריפט חיצוני עם הבטחה + fallback בין CDN-ים (רשת אחת נכשלה? ננסה אחרת).
+function loadScript(url){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=url; s.async=true
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('load fail: '+url))
+    document.head.appendChild(s)
+  })
+}
+// מוודא שספריית QRious זמינה (global QRious). מנסה כמה מקורות עד שאחד עולה.
+let QR_LOADING=null
+async function ensureQrLib(){
+  if(window.QRious) return
+  if(QR_LOADING) return QR_LOADING
+  const urls=[
+    'https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js',
+    'https://unpkg.com/qrious@4.0.2/dist/qrious.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js',
+  ]
+  QR_LOADING=(async()=>{
+    let last
+    for(const u of urls){ try{ await loadScript(u); if(window.QRious) return }catch(e){ last=e } }
+    throw last||new Error('no CDN')
+  })()
+  return QR_LOADING
+}
 async function buildQr(){
   $('qr-status').textContent='בונה קוד…'
   let ver='—'
@@ -973,10 +997,12 @@ async function buildQr(){
   $('qr-ver').textContent=ver
   $('qr-apk').textContent=PROV.apkUrl
   try{
-    if(!window.QRCode||!QRCode.toCanvas) throw new Error('ספריית ה-QR לא נטענה (בדוק חיבור)')
-    await QRCode.toCanvas($('qr-canvas'), QR_JSON, {width:240, margin:1, errorCorrectionLevel:'M'})
+    await ensureQrLib()
+    if(!window.QRious) throw new Error('ספריית ה-QR לא נטענה')
+    // QRious מצייר על אלמנט canvas קיים.
+    new QRious({ element: $('qr-canvas'), value: QR_JSON, size: 280, level: 'L', padding: 8, background:'#fff', foreground:'#140F2E' })
     $('qr-status').textContent='מוכן לסריקה ✓'
-  }catch(e){ $('qr-status').innerHTML='<span style="color:var(--block)">'+esc(e.message)+'</span>' }
+  }catch(e){ $('qr-status').innerHTML='<span style="color:var(--block)">שגיאה: '+esc(e.message||String(e))+' — אפשר בינתיים "העתק JSON" וליצור QR חיצונית.</span>' }
 }
 async function copyQrJson(){ try{ await navigator.clipboard.writeText(QR_JSON); toast('הועתק ✓') }catch(e){ toast('העתקה נכשלה') } }
 
