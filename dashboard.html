@@ -55,6 +55,25 @@
   .nav a:hover{background:var(--line2);color:var(--txt)}
   .nav a.active{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;box-shadow:0 10px 20px -12px var(--pri)}
   .nav a.soon{color:var(--faint);cursor:default}
+
+  /* ── PROVISION (הקצאת מכשיר) ── */
+  .prov-tabs{display:flex;gap:8px;margin:0 0 16px}
+  .prov-tab{background:var(--card);border:0;box-shadow:inset 0 0 0 1px var(--line);color:var(--muted);
+    padding:10px 18px;border-radius:12px;font-family:var(--font);font-weight:800;font-size:14px;cursor:pointer}
+  .prov-tab.active{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;box-shadow:0 10px 20px -12px var(--pri)}
+  .prov-note{border-inline-start:4px solid var(--amber)}
+  .prov-ul,.prov-ol{margin:8px 0 0;padding-inline-start:20px;font-size:13.5px;color:var(--muted);line-height:1.8}
+  .prov-ul li,.prov-ol li{margin-bottom:8px}
+  .prov-ul b,.prov-ol b{color:var(--txt)}
+  .prov-qrwrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  #qr-canvas{background:#fff;border-radius:14px;padding:12px;box-shadow:inset 0 0 0 1px var(--line)}
+  .prov-qrmeta{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:8px;font-weight:600}
+  .prov-qrmeta .mono{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--faint);word-break:break-all;max-width:360px}
+  .prov-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 4px}
+  .prov-console{margin-top:12px;background:#140F2E;color:#C9BEF5;border-radius:12px;padding:14px 16px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.65;white-space:pre-wrap;
+    max-height:280px;overflow:auto;direction:ltr;text-align:left}
+  .prov-console .ok{color:#5AE0A8}.prov-console .err{color:#FF7A90}.prov-console .step{color:#F6C453}
   main{flex:1;min-width:0}
   header.top{padding:16px 24px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
@@ -204,6 +223,7 @@
     <nav class="nav">
       <a id="nav-customers" class="active" onclick="showPage('customers')">👥 לקוחות</a>
       <a id="nav-devices" onclick="showPage('devices')">📱 ניהול מכשירים</a>
+      <a id="nav-provision" onclick="showPage('provision')">🔒 הקצאת מכשיר</a>
       <a id="nav-stores" onclick="showPage('stores')">🏪 חנויות</a>
       <a class="soon" onclick="soon()">💳 קרדיטים <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
@@ -265,6 +285,93 @@
           </tr></thead>
           <tbody id="drows"><tr><td colspan="10" class="empty">טוען…</td></tr></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Device provisioning (Device Owner: QR + USB/ADB wizard) -->
+    <section class="page hide" id="page-provision">
+      <h2>🔒 הקצאת מכשיר — נעילה מלאה (Device Owner)</h2>
+      <p class="cardnote" style="max-width:820px">
+        כאן הופכים מכשיר חדש למכשיר <b>נעול וסגור</b>: מתקינים את AM Kids האחרון,
+        הופכים אותו ל-<b>Device Owner</b>, והוא נועל את עצמו לקיוסק. שתי דרכים —
+        <b>QR</b> (למכשיר מאופס, בלי מחשב) ו-<b>USB</b> (מהדפדפן, בכבל).
+      </p>
+
+      <!-- טאבים -->
+      <div class="prov-tabs">
+        <button id="pt-qr"  class="prov-tab active" onclick="provTab('qr')">📷 QR (מכשיר מאופס)</button>
+        <button id="pt-usb" class="prov-tab"        onclick="provTab('usb')">🔌 USB (כבל + דפדפן)</button>
+      </div>
+
+      <!-- ═══ תנאי-סף (מוצג בשני הטאבים) ═══ -->
+      <div class="grpcard prov-note">
+        <h3>⚠️ תנאי חובה ל-Device Owner</h3>
+        <ul class="prov-ul">
+          <li><b>אין חשבון Google במכשיר.</b> אי-אפשר להפוך מכשיר עם חשבון ל-Device Owner —
+            זו חסימת-אבטחה של אנדרואיד, בלי דרך לעקוף.
+            <br>➊ <u>מכשיר מאופס</u> (דלגו על חשבון בהגדרה) — עדיף. |
+            ➋ <u>מכשיר שכבר בשימוש</u>: <b>הגדרות → חשבונות → הסירו את חשבון Google</b>
+            (הדאטה נשארת, בלי מחיקה) ואז המשיכו. על חלק מהמכשירים עדיין צריך איפוס.</li>
+          <li><b>סמסונג עם Knox</b> — יש דרך לנעול <u>בלי איפוס ובלי להסיר חשבון</u> (רישיון Knox). בקרוב.</li>
+        </ul>
+      </div>
+
+      <!-- ═══ טאב QR ═══ -->
+      <div id="prov-qr">
+        <div class="grpcard">
+          <h3>📷 הקצאה ב-QR — למכשיר מאופס</h3>
+          <ol class="prov-ol">
+            <li>אפסו את המכשיר להגדרות יצרן (או הוציאו מכשיר חדש).</li>
+            <li>במסך הפתיחה של ההגדרה — <b>הקישו 6 פעמים</b> על אותו מקום (המסך הראשון "שלום").</li>
+            <li>המכשיר יבקש להתחבר ל-Wi-Fi ואז יפעיל מצלמה — <b>סרקו את הקוד למטה</b>.</li>
+            <li>המכשיר יוריד ויתקין את AM Kids ויגדיר את עצמו כ-Device Owner — אוטומטית.</li>
+          </ol>
+          <div class="prov-qrwrap">
+            <canvas id="qr-canvas" width="240" height="240"></canvas>
+            <div class="prov-qrmeta">
+              <div>גרסה ל-QR: <b id="qr-ver">טוען…</b></div>
+              <div>APK: <span id="qr-apk" class="mono">—</span></div>
+              <button class="b-ghost" onclick="buildQr()">רענן קוד</button>
+              <button class="b-ghost" onclick="copyQrJson()">העתק JSON</button>
+              <div class="hint" id="qr-status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ טאב USB ═══ -->
+      <div id="prov-usb" class="hide">
+        <div class="grpcard">
+          <h3>🔌 אשף USB — כבל + דפדפן (Chrome / Edge)</h3>
+          <ol class="prov-ol">
+            <li>במכשיר: הגדרות → אודות → הקישו 7× על "מספר Build" → חזרה → <b>אפשרויות מפתחים → ניפוי USB</b> (מופעל).</li>
+            <li>חברו את המכשיר בכבל למחשב. במכשיר יקפוץ <b>"לאשר ניפוי USB?"</b> → סמנו "תמיד" → <b>אישור</b>.</li>
+            <li>לחצו <b>"חבר מכשיר"</b> ובחרו אותו מרשימת ה-USB של הדפדפן.</li>
+            <li>לחצו <b>"הקשח ונעל"</b> — יתקין את AM Kids האחרון, יגדיר Device Owner וינעל.</li>
+          </ol>
+          <div class="prov-actions">
+            <button class="btn" id="usb-connect" style="width:auto" onclick="usbConnect()">🔌 חבר מכשיר</button>
+            <button class="btn" id="usb-harden" style="width:auto;display:none" onclick="usbHarden()">🔒 הקשח ונעל</button>
+            <button class="b-ghost" id="usb-owner" style="display:none" onclick="usbSetOwnerOnly()">רק הפוך ל-Owner (אם כבר מותקן)</button>
+            <button class="b-ghost" id="usb-disconnect" style="display:none" onclick="usbDisconnect()">נתק</button>
+          </div>
+          <div class="prov-console" id="usb-log">מוכן. חבר מכשיר כדי להתחיל…</div>
+          <p class="cardnote" id="usb-unsupported" style="display:none;color:var(--block)">
+            הדפדפן הזה לא תומך ב-WebUSB. פתח את הדשבורד ב-<b>Chrome</b> או <b>Edge</b> במחשב.
+            לחלופין, השתמש ב-<b>סקריפט הידני</b> למטה.
+          </p>
+        </div>
+
+        <div class="grpcard">
+          <h3>🧰 גיבוי: סקריפט ידני (adb מותקן במחשב)</h3>
+          <p class="cardnote">אם ה-USB בדפדפן לא משתף פעולה, או שאתה מעדיף adb קלאסי — הורד את
+            הסקריפט, ודא ש-<a href="https://developer.android.com/tools/releases/platform-tools" target="_blank">platform-tools (adb)</a>
+            מותקן, והרץ אותו כשהמכשיר מחובר ומאושר.</p>
+          <div class="prov-actions">
+            <button class="b-ghost" onclick="downloadScript('bat')">⬇️ Windows (.bat)</button>
+            <button class="b-ghost" onclick="downloadScript('sh')">⬇️ Mac/Linux (.sh)</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -574,10 +681,11 @@ function render(){
 
 // ── DETAIL ──
 function showPage(p){
-  ;['customers','devices','stores','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  ;['customers','devices','provision','stores','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
   document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'))
   if(p==='customers') $('nav-customers').classList.add('active')
   if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
+  if(p==='provision'){ $('nav-provision').classList.add('active'); initProvision() }
   if(p==='stores'){ $('nav-stores').classList.add('active'); renderStores() }
   if(p==='detail') $('nav-customers').classList.add('active')
 }
@@ -822,6 +930,171 @@ async function saveDevice(){
   if(session) await enterApp()
 })()
 setInterval(()=>{ if(!$('app').classList.contains('hide')) loadDevices() }, 12000)
+</script>
+
+<!-- ═══ הקצאת מכשיר: QR + WebUSB/ADB ═══ -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+// קבועים — שם החבילה, רכיב ה-Device Admin, כתובת ה-APK האחרון, ה-manifest,
+// וטביעת-האצבע של תעודת החתימה (base64url של SHA-256 — ל-QR provisioning).
+const PROV = {
+  pkg: 'com.amkids.app',
+  admin: 'com.amkids.app/com.amkids.app.KioskAdminReceiver',
+  apkUrl: 'https://github.com/mgnamsellem/am-kids-releases/releases/latest/download/AM-Kids.apk',
+  manifest: 'https://raw.githubusercontent.com/mgnamsellem/am-kids-releases/main/latest.json',
+  certChecksum: 'FDjWDXt5hJsxDlNExP5emfs-RJezyaRAk_VFZquctz0',
+}
+let QR_JSON = '', PROV_INIT = false
+
+function initProvision(){ if(PROV_INIT) return; PROV_INIT=true; buildQr(); usbCheckSupport() }
+
+function provTab(w){
+  $('prov-qr').classList.toggle('hide', w!=='qr')
+  $('prov-usb').classList.toggle('hide', w!=='usb')
+  $('pt-qr').classList.toggle('active', w==='qr')
+  $('pt-usb').classList.toggle('active', w==='usb')
+  if(w==='usb') usbCheckSupport()
+}
+
+// ── QR provisioning ──
+async function buildQr(){
+  $('qr-status').textContent='בונה קוד…'
+  let ver='—'
+  try{ const m=await (await fetch(PROV.manifest,{cache:'no-store'})).json();
+       ver=(m.name||'?')+' · build '+(m.versionCode||'?') }catch(e){ ver='(לא ניתן לקרוא manifest)' }
+  const payload={
+    'android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME': PROV.admin,
+    'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM': PROV.certChecksum,
+    'android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION': PROV.apkUrl,
+    'android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED': true,
+    'android.app.extra.PROVISIONING_SKIP_ENCRYPTION': false,
+  }
+  QR_JSON=JSON.stringify(payload)
+  $('qr-ver').textContent=ver
+  $('qr-apk').textContent=PROV.apkUrl
+  try{
+    if(!window.QRCode||!QRCode.toCanvas) throw new Error('ספריית ה-QR לא נטענה (בדוק חיבור)')
+    await QRCode.toCanvas($('qr-canvas'), QR_JSON, {width:240, margin:1, errorCorrectionLevel:'M'})
+    $('qr-status').textContent='מוכן לסריקה ✓'
+  }catch(e){ $('qr-status').innerHTML='<span style="color:var(--block)">'+esc(e.message)+'</span>' }
+}
+async function copyQrJson(){ try{ await navigator.clipboard.writeText(QR_JSON); toast('הועתק ✓') }catch(e){ toast('העתקה נכשלה') } }
+
+// ── WebUSB / ADB (בטא — לבדוק על מכשיר) ──
+let ADB=null
+function usbCheckSupport(){
+  const ok = ('usb' in navigator)
+  const u=$('usb-unsupported'); if(u) u.style.display = ok?'none':'block'
+  const c=$('usb-connect'); if(c) c.disabled = !ok
+}
+function ulog(msg,cls){ const el=$('usb-log'); if(!el) return;
+  const t=new Date().toLocaleTimeString('he-IL')
+  el.innerHTML += '\n<span class="'+(cls||'')+'">['+t+'] '+esc(msg)+'</span>'; el.scrollTop=el.scrollHeight }
+
+async function adbShell(cmd){
+  const sp = ADB && ADB.subprocess
+  if(!sp) throw new Error('אין חיבור פעיל')
+  if(sp.noneProtocol && sp.noneProtocol.spawnWaitText) return await sp.noneProtocol.spawnWaitText(cmd)
+  if(sp.shellProtocol && sp.shellProtocol.spawnWaitText) return await sp.shellProtocol.spawnWaitText(cmd)
+  if(sp.spawnAndWait){ const r=await sp.spawnAndWait(cmd); return (r.stdout||r.output||'').toString() }
+  throw new Error('גרסת מנוע ה-ADB לא נתמכת — השתמש בסקריפט הידני')
+}
+
+async function usbConnect(){
+  try{
+    ulog('טוען מנוע ADB…','step')
+    const [m1,m2,m3] = await Promise.all([
+      import('https://esm.sh/@yume-chan/adb-daemon-webusb@1.1.0'),
+      import('https://esm.sh/@yume-chan/adb@1.1.0'),
+      import('https://esm.sh/@yume-chan/adb-credential-web@1.1.0'),
+    ])
+    const Manager = m1.AdbDaemonWebUsbDeviceManager.BROWSER
+    if(!Manager){ ulog('WebUSB לא זמין בדפדפן הזה','err'); return }
+    ulog('בחר את המכשיר בחלון שנפתח…','step')
+    const dev = await Manager.requestDevice()
+    if(!dev){ ulog('לא נבחר מכשיר','err'); return }
+    ulog('מתחבר… (אשר "ניפוי USB" במכשיר אם קופץ)','step')
+    const connection = await dev.connect()
+    const credentialStore = new m3.AdbWebCredentialStore('AM Kids Dashboard')
+    const transport = await m2.AdbDaemonTransport.authenticate({ serial: dev.serial, connection, credentialStore })
+    ADB = new m2.Adb(transport)
+    const model = await adbShell('getprop ro.product.model')
+    ulog('מחובר ✓  ('+String(model).trim()+')','ok')
+    $('usb-connect').style.display='none'
+    $('usb-harden').style.display=''; $('usb-owner').style.display=''; $('usb-disconnect').style.display=''
+  }catch(e){ ulog('כשל בחיבור: '+(e && e.message || e),'err'); ulog('טיפ: ודא Chrome/Edge + ניפוי USB מאושר, או השתמש בסקריפט הידני.','') }
+}
+
+async function usbSetOwnerOnly(){
+  if(!ADB){ ulog('אין חיבור','err'); return }
+  ulog('מגדיר Device Owner…','step')
+  try{
+    const out = await adbShell('dpm set-device-owner '+PROV.admin)
+    if(/Success/i.test(out)) ulog('✓ הוגדר Device Owner בהצלחה — האפליקציה תינעל לקיוסק','ok')
+    else ulog('תגובת המכשיר: '+String(out).trim(),'err')
+  }catch(e){ ulog('כשל: '+(e && e.message || e),'err') }
+}
+
+async function usbHarden(){
+  if(!ADB){ ulog('אין חיבור','err'); return }
+  try{
+    ulog('מוריד את AM Kids האחרון…','step')
+    const resp = await fetch(PROV.apkUrl)
+    if(!resp.ok) throw new Error('הורדת APK נכשלה ('+resp.status+')')
+    const buf = new Uint8Array(await resp.arrayBuffer())
+    ulog('גודל APK: '+(buf.length/1e6).toFixed(1)+'MB — מעביר למכשיר…','step')
+    const path='/data/local/tmp/amkids.apk'
+    const sync = await ADB.sync()
+    const stream = new ReadableStream({ start(c){ c.enqueue(buf); c.close() } })
+    await sync.write({ filename: path, file: stream })
+    if(sync.dispose) await sync.dispose()
+    ulog('מתקין…','step')
+    const inst = await adbShell('pm install -r -t '+path)
+    if(!/Success/i.test(inst)){ ulog('התקנה נכשלה: '+String(inst).trim()+' — נסה את הסקריפט הידני','err'); return }
+    ulog('✓ הותקן','ok')
+    await usbSetOwnerOnly()
+    ulog('מפעיל את האפליקציה…','step')
+    try{ await adbShell('monkey -p '+PROV.pkg+' -c android.intent.category.LAUNCHER 1') }catch(e){}
+    ulog('✓ הושלם — המכשיר אמור להיות נעול כעת.','ok')
+  }catch(e){ ulog('כשל: '+(e && e.message || e)+' — נסה את הסקריפט הידני למטה','err') }
+}
+
+async function usbDisconnect(){
+  try{ if(ADB && ADB.close) await ADB.close() }catch(e){}
+  ADB=null; ulog('נותק','step')
+  $('usb-connect').style.display=''
+  $('usb-harden').style.display='none'; $('usb-owner').style.display='none'; $('usb-disconnect').style.display='none'
+}
+
+// ── סקריפט ידני (גיבוי אמין ל-adb קלאסי) ──
+function downloadScript(kind){
+  const bat =
+'@echo off\r\nchcp 65001 >nul\r\nsetlocal\r\n'+
+'echo === AM Kids - Install + Device Owner ===\r\n'+
+'adb start-server\r\n'+
+'echo Downloading APK...\r\n'+
+'powershell -Command "Invoke-WebRequest -Uri \''+PROV.apkUrl+'\' -OutFile \'%TEMP%\\AM-Kids.apk\'"\r\n'+
+'echo Installing...\r\n'+
+'adb install -r -t "%TEMP%\\AM-Kids.apk"\r\n'+
+'echo Setting Device Owner...\r\n'+
+'adb shell dpm set-device-owner '+PROV.admin+'\r\n'+
+'echo Done. If you got an "accounts" error - remove the Google account and retry.\r\n'+
+'pause\r\n'
+  const sh =
+'#!/usr/bin/env bash\nset -e\n'+
+'echo "=== AM Kids - Install + Device Owner ==="\n'+
+'adb start-server\n'+
+'TMP="$(mktemp -d)/AM-Kids.apk"\n'+
+'echo "Downloading APK..."; curl -fL "'+PROV.apkUrl+'" -o "$TMP"\n'+
+'echo "Installing..."; adb install -r -t "$TMP"\n'+
+'echo "Setting Device Owner..."; adb shell dpm set-device-owner '+PROV.admin+'\n'+
+'echo "Done. If you got an accounts error - remove the Google account and retry."\n'
+  const body = kind==='bat'?bat:sh
+  const blob=new Blob([body],{type:'text/plain;charset=utf-8'})
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob)
+  a.download = kind==='bat'?'amkids-provision.bat':'amkids-provision.sh'
+  document.body.appendChild(a); a.click(); a.remove()
+}
 </script>
 </body>
 </html>
