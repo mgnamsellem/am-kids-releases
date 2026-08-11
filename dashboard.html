@@ -82,6 +82,9 @@
   .amd-ghdr .cnt{background:var(--block);color:#fff;border-radius:20px;font-size:11.5px;font-weight:800;padding:1px 10px}
   .amd-chev{color:var(--faint);font-size:13px;width:16px;text-align:center;transition:transform .15s}
   .amd-chev.open{transform:rotate(180deg)}
+  .amd-search{width:100%;background:#FAF7FF;border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:11px;
+    padding:11px 14px;font-family:var(--font);font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px}
+  .amd-search:focus{outline:none;box-shadow:inset 0 0 0 2px var(--pri2)}
   .amd-gicon{font-size:17px;line-height:1;width:22px;text-align:center;flex-shrink:0}
   .amd-apps{display:flex;flex-direction:column;gap:1px;padding:4px 8px 10px;border-top:1px solid var(--line)}
   .amd-app{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:9px;cursor:pointer}
@@ -420,12 +423,15 @@
 
       <div class="grpcard">
         <h3>🗑️ בחר מה למחוק <span class="mono" style="font-size:11px">pm uninstall --user 0</span></h3>
+        <input id="amd-search" class="amd-search" oninput="amdSearch()"
+               placeholder="🔍 חיפוש אפליקציה — שם או חבילה…">
         <div class="prov-actions" style="margin-top:0">
           <button class="b-ghost" onclick="amdAll(true)">סמן הכל</button>
           <button class="b-ghost" onclick="amdAll(false)">נקה הכל</button>
           <span class="hint" id="amd-count" style="align-self:center"></span>
         </div>
         <div id="amd-groups" style="margin-top:10px"></div>
+        <div id="amd-noresult" class="hint hide" style="text-align:center;padding:14px">לא נמצאו אפליקציות</div>
       </div>
 
       <div class="grpcard">
@@ -1220,6 +1226,27 @@ function amdRender(){ const wrap=$('amd-groups'); if(!wrap)return;
   amdCount() }
 function amdToggle(i){ var el=$('amd-apps-'+i), ch=$('amd-chev-'+i); if(!el)return;
   el.classList.toggle('hide'); if(ch)ch.classList.toggle('open') }
+function amdSearch(){
+  var q=(($('amd-search')||{}).value||'').trim().toLowerCase()
+  // סינון כל שורות האפליקציות לפי שם ידידותי או שם חבילה
+  document.querySelectorAll('.amd-app').forEach(function(lbl){
+    var inp=lbl.querySelector('.amd-pkg'); if(!inp)return
+    var pkg=(inp.value||'').toLowerCase()
+    var nmEl=lbl.querySelector('.nm'); var nm=(nmEl?nmEl.textContent:'').toLowerCase()
+    lbl.style.display = (!q || pkg.indexOf(q)>=0 || nm.indexOf(q)>=0) ? '' : 'none'
+  })
+  // לכל קטגוריה: כשמחפשים — מרחיבים ומסתירים קטגוריות ריקות; כשמנקים — מקפלים חזרה
+  var groups=document.querySelectorAll('.amd-group'); var totalVis=0
+  AM_DELETE_GROUPS.forEach(function(g,i){
+    var vis=0; document.querySelectorAll('.amd-pkg[data-i="'+i+'"]').forEach(function(inp){
+      var l=inp.closest('.amd-app'); if(l && l.style.display!=='none') vis++ })
+    totalVis+=vis
+    var gEl=groups[i], appsEl=$('amd-apps-'+i), chev=$('amd-chev-'+i)
+    if(q){ if(gEl)gEl.style.display=vis?'':'none'; if(vis&&appsEl){appsEl.classList.remove('hide'); if(chev)chev.classList.add('open')} }
+    else { if(gEl)gEl.style.display=''; if(appsEl)appsEl.classList.add('hide'); if(chev)chev.classList.remove('open') }
+  })
+  var nr=$('amd-noresult'); if(nr)nr.classList.toggle('hide', !(q && totalVis===0))
+}
 function amdMaster(i,v){ document.querySelectorAll('.amd-pkg[data-i="'+i+'"]').forEach(function(c){ c.checked=v }); amdCount() }
 function amdAll(v){ document.querySelectorAll('.amd-pkg').forEach(function(c){ c.checked=v });
   document.querySelectorAll('.amd-master').forEach(function(c){ c.checked=v }); amdCount() }
