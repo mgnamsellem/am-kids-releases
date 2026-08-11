@@ -74,6 +74,20 @@
     font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.65;white-space:pre-wrap;
     max-height:280px;overflow:auto;direction:ltr;text-align:left}
   .prov-console .ok{color:#5AE0A8}.prov-console .err{color:#FF7A90}.prov-console .step{color:#F6C453}
+  /* ── AM Delete — קטגוריות נפתחות ── */
+  .amd-group{background:#FAF7FF;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line);margin-bottom:8px;overflow:hidden}
+  .amd-ghdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;font-weight:800;font-size:14.5px;user-select:none}
+  .amd-ghdr input{width:19px;height:19px;accent-color:var(--pri2);flex-shrink:0}
+  .amd-gname{flex:1}
+  .amd-ghdr .cnt{background:var(--block);color:#fff;border-radius:20px;font-size:11.5px;font-weight:800;padding:1px 10px}
+  .amd-chev{color:var(--faint);font-size:13px;width:16px;text-align:center;transition:transform .15s}
+  .amd-chev.open{transform:rotate(180deg)}
+  .amd-apps{display:flex;flex-direction:column;gap:2px;padding:2px 8px 10px;border-top:1px solid var(--line)}
+  .amd-app{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;font-size:12.5px}
+  .amd-app:hover{background:#F1EBFF}
+  .amd-app input{width:16px;height:16px;accent-color:var(--pri2);flex-shrink:0}
+  .amd-app .pkg{font-family:ui-monospace,Menlo,monospace;color:var(--muted);direction:ltr;text-align:left;flex:1;word-break:break-all}
+  .amd-app .nm{font-weight:700;color:var(--txt)}
   main{flex:1;min-width:0}
   header.top{padding:16px 24px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
@@ -409,7 +423,7 @@
           <button class="b-ghost" onclick="amdAll(false)">נקה הכל</button>
           <span class="hint" id="amd-count" style="align-self:center"></span>
         </div>
-        <div class="grid" id="amd-groups" style="margin-top:10px"></div>
+        <div id="amd-groups" style="margin-top:10px"></div>
       </div>
 
       <div class="grpcard">
@@ -1181,11 +1195,32 @@ function amdInit(){ if(AMD_INIT) return; AMD_INIT=true; amdRender(); amdSupport(
 function amdSupport(){ const ok=('usb' in navigator); const u=$('amd-unsupported'); if(u)u.style.display=ok?'none':'block'; const c=$('amd-connect'); if(c)c.disabled=!ok }
 function amdLog(msg,cls){ const el=$('amd-log'); if(!el)return; const t=new Date().toLocaleTimeString('he-IL'); el.innerHTML+='\n<span class="'+(cls||'')+'">['+t+'] '+esc(msg)+'</span>'; el.scrollTop=el.scrollHeight }
 function amdRender(){ const wrap=$('amd-groups'); if(!wrap)return;
-  wrap.innerHTML = AM_DELETE_GROUPS.map(function(g,i){ return '<label class="chk"><input type="checkbox" class="amd-grp" data-i="'+i+'" checked onchange="amdCount()"> <span>'+esc(g.name)+'</span><span class="cnt">'+g.pkgs.length+'</span></label>' }).join('')
+  wrap.innerHTML = AM_DELETE_GROUPS.map(function(g,i){
+    var apps = g.pkgs.map(function(p){
+      return '<label class="amd-app"><input type="checkbox" class="amd-pkg" data-i="'+i+'" value="'+esc(p)+'" checked onchange="amdCount()"><span class="pkg">'+esc(p)+'</span></label>'
+    }).join('')
+    return '<div class="amd-group">'+
+      '<div class="amd-ghdr" onclick="amdToggle('+i+')">'+
+        '<input type="checkbox" class="amd-master" data-i="'+i+'" checked onclick="event.stopPropagation();amdMaster('+i+',this.checked)">'+
+        '<span class="amd-gname">'+esc(g.name)+'</span>'+
+        '<span class="cnt">'+g.pkgs.length+'</span>'+
+        '<span class="amd-chev" id="amd-chev-'+i+'">▾</span>'+
+      '</div>'+
+      '<div class="amd-apps hide" id="amd-apps-'+i+'">'+apps+'</div>'+
+    '</div>'
+  }).join('')
   amdCount() }
-function amdAll(v){ document.querySelectorAll('.amd-grp').forEach(function(c){ c.checked=v }); amdCount() }
-function amdSelected(){ const s=[]; document.querySelectorAll('.amd-grp:checked').forEach(function(c){ s.push.apply(s, AM_DELETE_GROUPS[+c.dataset.i].pkgs) }); return s }
-function amdCount(){ const n=amdSelected().length; const el=$('amd-count'); if(el)el.textContent=n+' אפליקציות נבחרו למחיקה' }
+function amdToggle(i){ var el=$('amd-apps-'+i), ch=$('amd-chev-'+i); if(!el)return;
+  el.classList.toggle('hide'); if(ch)ch.classList.toggle('open') }
+function amdMaster(i,v){ document.querySelectorAll('.amd-pkg[data-i="'+i+'"]').forEach(function(c){ c.checked=v }); amdCount() }
+function amdAll(v){ document.querySelectorAll('.amd-pkg').forEach(function(c){ c.checked=v });
+  document.querySelectorAll('.amd-master').forEach(function(c){ c.checked=v }); amdCount() }
+function amdSelected(){ var s=[]; document.querySelectorAll('.amd-pkg:checked').forEach(function(c){ s.push(c.value) }); return s }
+function amdCount(){ var n=amdSelected().length; var el=$('amd-count'); if(el)el.textContent=n+' אפליקציות נבחרו למחיקה';
+  // עדכון תיבת ה-master לכל קטגוריה לפי הילדים
+  AM_DELETE_GROUPS.forEach(function(g,i){ var all=document.querySelectorAll('.amd-pkg[data-i="'+i+'"]');
+    var on=document.querySelectorAll('.amd-pkg[data-i="'+i+'"]:checked'); var m=document.querySelector('.amd-master[data-i="'+i+'"]');
+    if(m){ m.checked=on.length>0; m.indeterminate=on.length>0&&on.length<all.length } }) }
 async function amdConnect(){ try{ if(!await adbConnectShared(amdLog)) return;
     const m=await adbShell('getprop ro.product.model'); amdLog('מחובר ✓ ('+String(m).trim()+')','ok')
     $('amd-connect').style.display='none'; $('amd-start').style.display=''; $('amd-disconnect').style.display=''
