@@ -224,6 +224,7 @@
       <a id="nav-customers" class="active" onclick="showPage('customers')">👥 לקוחות</a>
       <a id="nav-devices" onclick="showPage('devices')">📱 ניהול מכשירים</a>
       <a id="nav-provision" onclick="showPage('provision')">🔒 הקצאת מכשיר</a>
+      <a id="nav-amdelete" onclick="showPage('amdelete')">🧹 AM Delete</a>
       <a id="nav-stores" onclick="showPage('stores')">🏪 חנויות</a>
       <a class="soon" onclick="soon()">💳 קרדיטים <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
@@ -372,6 +373,48 @@
             <button class="b-ghost" onclick="downloadScript('sh')">⬇️ Mac/Linux (.sh)</button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- AM Delete — עקירת אפליקציות לא-כשרות דרך USB -->
+    <section class="page hide" id="page-amdelete">
+      <h2>🧹 AM Delete — מחיקת אפליקציות לא-כשרות</h2>
+      <p class="cardnote" style="max-width:840px">
+        מחיקת אפליקציות גוגל, רשתות, דפדפנים ו-Bloat ממכשיר מחובר בכבל, בלחיצה.
+        המחיקה מסירה את האפליקציה למשתמש הנוכחי (<span class="mono">pm uninstall --user 0</span>)
+        ואינה מוחקת נתונים אישיים. Chrome/Edge במחשב בלבד.
+      </p>
+
+      <div class="grpcard">
+        <h3>🔌 חיבור מכשיר</h3>
+        <ol class="prov-ol">
+          <li>במכשיר: אפשרויות מפתחים → <b>ניפוי USB</b> מופעל.</li>
+          <li>חברו בכבל למחשב, ובמכשיר אשרו <b>"לאשר ניפוי USB?"</b>.</li>
+          <li>לחצו "חבר מכשיר", בחרו אותו, ואז סמנו מה למחוק ולחצו "התחל מחיקה".</li>
+        </ol>
+        <div class="prov-actions">
+          <button class="btn" id="amd-connect" style="width:auto" onclick="amdConnect()">🔌 חבר מכשיר</button>
+          <button class="btn" id="amd-start" style="width:auto;display:none" onclick="amdRun()">🗑️ התחל מחיקה</button>
+          <button class="b-ghost" id="amd-disconnect" style="display:none" onclick="amdDisconnect()">נתק</button>
+        </div>
+        <p class="cardnote" id="amd-unsupported" style="display:none;color:var(--block)">
+          הדפדפן לא תומך ב-WebUSB. פתח ב-Chrome או Edge במחשב.
+        </p>
+      </div>
+
+      <div class="grpcard">
+        <h3>🗑️ בחר מה למחוק <span class="mono" style="font-size:11px">pm uninstall --user 0</span></h3>
+        <div class="prov-actions" style="margin-top:0">
+          <button class="b-ghost" onclick="amdAll(true)">סמן הכל</button>
+          <button class="b-ghost" onclick="amdAll(false)">נקה הכל</button>
+          <span class="hint" id="amd-count" style="align-self:center"></span>
+        </div>
+        <div class="grid" id="amd-groups" style="margin-top:10px"></div>
+      </div>
+
+      <div class="grpcard">
+        <h3>📋 יומן</h3>
+        <div class="prov-console" id="amd-log">מוכן. חבר מכשיר כדי להתחיל…</div>
       </div>
     </section>
 
@@ -681,11 +724,12 @@ function render(){
 
 // ── DETAIL ──
 function showPage(p){
-  ;['customers','devices','provision','stores','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  ;['customers','devices','provision','amdelete','stores','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
   document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'))
   if(p==='customers') $('nav-customers').classList.add('active')
   if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
   if(p==='provision'){ $('nav-provision').classList.add('active'); initProvision() }
+  if(p==='amdelete'){ $('nav-amdelete').classList.add('active'); amdInit() }
   if(p==='stores'){ $('nav-stores').classList.add('active'); renderStores() }
   if(p==='detail') $('nav-customers').classList.add('active')
 }
@@ -1026,24 +1070,30 @@ async function adbShell(cmd){
   throw new Error('גרסת מנוע ה-ADB לא נתמכת — השתמש בסקריפט הידני')
 }
 
+// חיבור ADB משותף (לכל הכלים שמדברים USB). מחזיר true בהצלחה ומאתחל ADB.
+async function adbConnectShared(log){
+  log('טוען מנוע ADB…','step')
+  const [m1,m2,m3] = await Promise.all([
+    import('https://esm.sh/@yume-chan/adb-daemon-webusb@1.1.0'),
+    import('https://esm.sh/@yume-chan/adb@1.1.0'),
+    import('https://esm.sh/@yume-chan/adb-credential-web@1.1.0'),
+  ])
+  const Manager = m1.AdbDaemonWebUsbDeviceManager.BROWSER
+  if(!Manager){ log('WebUSB לא זמין בדפדפן הזה','err'); return false }
+  log('בחר את המכשיר בחלון שנפתח…','step')
+  const dev = await Manager.requestDevice()
+  if(!dev){ log('לא נבחר מכשיר','err'); return false }
+  log('מתחבר… (אשר "ניפוי USB" במכשיר אם קופץ)','step')
+  const connection = await dev.connect()
+  const credentialStore = new m3.AdbWebCredentialStore('AM Kids Dashboard')
+  const transport = await m2.AdbDaemonTransport.authenticate({ serial: dev.serial, connection, credentialStore })
+  ADB = new m2.Adb(transport)
+  return true
+}
+
 async function usbConnect(){
   try{
-    ulog('טוען מנוע ADB…','step')
-    const [m1,m2,m3] = await Promise.all([
-      import('https://esm.sh/@yume-chan/adb-daemon-webusb@1.1.0'),
-      import('https://esm.sh/@yume-chan/adb@1.1.0'),
-      import('https://esm.sh/@yume-chan/adb-credential-web@1.1.0'),
-    ])
-    const Manager = m1.AdbDaemonWebUsbDeviceManager.BROWSER
-    if(!Manager){ ulog('WebUSB לא זמין בדפדפן הזה','err'); return }
-    ulog('בחר את המכשיר בחלון שנפתח…','step')
-    const dev = await Manager.requestDevice()
-    if(!dev){ ulog('לא נבחר מכשיר','err'); return }
-    ulog('מתחבר… (אשר "ניפוי USB" במכשיר אם קופץ)','step')
-    const connection = await dev.connect()
-    const credentialStore = new m3.AdbWebCredentialStore('AM Kids Dashboard')
-    const transport = await m2.AdbDaemonTransport.authenticate({ serial: dev.serial, connection, credentialStore })
-    ADB = new m2.Adb(transport)
+    if(!await adbConnectShared(ulog)) return
     const model = await adbShell('getprop ro.product.model')
     ulog('מחובר ✓  ('+String(model).trim()+')','ok')
     $('usb-connect').style.display='none'
@@ -1121,6 +1171,37 @@ function downloadScript(kind){
   a.download = kind==='bat'?'amkids-provision.bat':'amkids-provision.sh'
   document.body.appendChild(a); a.click(); a.remove()
 }
+</script>
+
+<!-- ═══ AM Delete — עקירת אפליקציות דרך WebUSB ═══ -->
+<script>
+const AM_DELETE_GROUPS = [{"name": "Google", "pkgs": ["com.android.vending", "com.google.android.apps.assistant", "com.google.android.apps.books", "com.google.android.apps.docs", "com.google.android.apps.googleassistant", "com.google.android.apps.maps", "com.google.android.apps.mapslite", "com.google.android.apps.messaging", "com.google.android.apps.nbu.files", "com.google.android.apps.photos", "com.google.android.apps.photosgo", "com.google.android.apps.searchlite", "com.google.android.apps.subscriptions.red", "com.google.android.apps.tachyon", "com.google.android.apps.walletnfcrel", "com.google.android.apps.wallpaper", "com.google.android.contacts", "com.google.android.dialer", "com.google.android.gm", "com.google.android.gm.lite", "com.google.android.googlequicksearchbox", "com.google.android.talk", "com.google.ar.lens"]}, {"name": "דפדפנים", "pkgs": ["com.android.browser", "com.android.chrome", "com.opera.app.news", "com.opera.branding.news", "com.opera.browser", "com.opera.max.oem", "com.opera.preinstall"]}, {"name": "מדיה (YouTube/Netflix/Spotify)", "pkgs": ["com.eterno.shortvideos", "com.google.android.apps.magazines", "com.google.android.apps.podcasts", "com.google.android.apps.youtube.mango", "com.google.android.apps.youtube.music", "com.google.android.music", "com.google.android.videos", "com.google.android.youtube", "com.netflix.mediaclient", "com.smart.softclient.music.baseline", "com.spotify.lite", "com.spotify.music", "com.zhiliaoapp.musically"]}, {"name": "רשתות חברתיות", "pkgs": ["com.facebook.appmanager", "com.facebook.katana", "com.facebook.lite", "com.facebook.services", "com.facebook.system", "flipboard.boxer.app"]}, {"name": "Samsung", "pkgs": ["com.samsung.android.app.contacts", "com.samsung.android.app.notes", "com.samsung.android.app.omcagent", "com.samsung.android.app.routines", "com.samsung.android.app.spage", "com.samsung.android.app.tips", "com.samsung.android.app.watchmanager", "com.samsung.android.bixby.agent", "com.samsung.android.bixby.service", "com.samsung.android.bixby.wakeup", "com.samsung.android.calendar", "com.samsung.android.contacts", "com.samsung.android.email.composer", "com.samsung.android.email.provider", "com.samsung.android.email.ui", "com.samsung.android.email.widget", "com.samsung.android.galaxy", "com.samsung.android.game.gamehome", "com.samsung.android.kidsinstaller", "com.samsung.android.messaging", "com.samsung.android.themecenter", "com.samsung.android.themestore", "com.samsung.android.video", "com.samsung.android.visionarapps", "com.samsung.android.visionintelligence", "com.samsung.android.voc", "com.samsung.app.samsungmemberstub", "com.samsung.ecomm.global.in", "com.samsung.emergency321", "com.samsung.knox.securefolder", "com.samsung.max.go", "com.samsung.memorysaver", "com.samsung.playback", "com.samsung.privilege", "com.samsung.sree", "com.samsung.th.galaxyappcenter", "com.sec.android.app.camera", "com.sec.android.app.clockpackage", "com.sec.android.app.fm", "com.sec.android.app.myfiles", "com.sec.android.app.popupcalculator", "com.sec.android.app.samsungapps", "com.sec.android.app.sbrowser", "com.sec.android.app.sbrowser.lite", "com.sec.android.app.shealth", "com.sec.android.app.voicenote", "com.sec.android.easyMover.Agent", "com.sec.android.gallery3d", "com.sec.android.service.health", "com.sec.android.soagant", "com.sec.kidsplat.drawing", "com.sec.kidsplat.kidsbrowser", "com.sec.kidsplat.kidsgallery", "com.sec.kidsplat.kidstalk", "com.sec.kidsplat.phone"]}, {"name": "Xiaomi / MIUI", "pkgs": ["cn.wps.moffice_eng", "cn.wps.xiaomi.aboard.lite", "com.coloros.assistantscreen", "com.mi.android.globalFileexplorer", "com.mi.android.globalminusscreen", "com.mi.global.bbs", "com.mi.globalbrowser", "com.mi.globalbrowser.mini", "com.mi.health", "com.miui.android.fashiongallery", "com.miui.bugreport", "com.miui.cleanmaster", "com.miui.fm", "com.miui.gallery", "com.miui.miservice", "com.miui.notes", "com.miui.player", "com.miui.securityadd", "com.miui.video", "com.miui.videoplayer", "com.miui.voiceassist", "com.miui.weather2", "com.xiaomi.glgm", "com.xiaomi.midrop", "com.xiaomi.mipicks", "com.xiaomi.payment"]}, {"name": "Microsoft", "pkgs": ["com.microsoft.office.excel", "com.microsoft.office.officehubrow", "com.microsoft.office.onenote", "com.microsoft.office.outlook", "com.microsoft.office.powerpoint", "com.microsoft.office.word", "com.microsoft.skydrive"]}, {"name": "נוסף / Bloat", "pkgs": ["com.amazon.mShop.android.shopping", "com.amigo.chameleon", "com.android.camera", "com.android.camera2", "com.android.contacts", "com.android.fmradio", "com.android.phone", "com.android.providers.telephny", "com.android.settings.intelligence", "com.android.thememanager", "com.aura.oobe.samsung.gl", "com.aura.oobe.sliide", "com.blackview.filetrans", "com.block.puzzle.game.hippo.mi", "com.br.org.sidi.b2xmobile", "com.bubble.free.bubblestory", "com.com.samsung.android.oneconnect", "com.contextlogic.wish", "com.crazy.juicer.xm", "com.dropbox.android", "com.eterno", "com.ewavemobile.songwaiting", "com.gionee.change", "com.hit.master", "com.jewelsblast.ivygames.Adventure.free", "com.king.candycrushsaga", "com.kingsgroup.ss.xiaomi", "com.lazada.android", "com.linkedin.android", "com.logame.eliminateintruder3d", "com.mamu.free.apps.battery.saver.cooler.fast.charger.app", "com.metro.minus1", "com.metropcs.metrozone", "com.metropcs.scamhield", "com.micredit.in", "com.mintgames.triplecrush.tile.fun", "com.motorola.ccc.notification", "com.motorola.fmplayer", "com.motorola.genie", "com.motorola.moto", "com.motorola.ptt.prip", "com.motorola.stylus", "com.mygalaxy", "com.nuance.nmc.sihome.metropcs", "com.osp.app.signin", "com.pelephone.cloud", "com.pelephone.navigator", "com.phonepe.app", "com.rsupport.rs.activity.rsupport.aas2", "com.shapsplus.kmarket", "com.skype.raider", "com.sprd.powersavemodelauncher", "com.sukhavati.gotoplaying.bubble.BubbleShooter.mint", "com.tencent.igxiaomi", "com.wssyncmldm", "com.yandex.preinstallite", "com.yandex.yango", "in.amazon.mShop.android.shopping", "jp.naver.line.android"]}];
+let AMD_INIT=false
+function amdInit(){ if(AMD_INIT) return; AMD_INIT=true; amdRender(); amdSupport() }
+function amdSupport(){ const ok=('usb' in navigator); const u=$('amd-unsupported'); if(u)u.style.display=ok?'none':'block'; const c=$('amd-connect'); if(c)c.disabled=!ok }
+function amdLog(msg,cls){ const el=$('amd-log'); if(!el)return; const t=new Date().toLocaleTimeString('he-IL'); el.innerHTML+='\n<span class="'+(cls||'')+'">['+t+'] '+esc(msg)+'</span>'; el.scrollTop=el.scrollHeight }
+function amdRender(){ const wrap=$('amd-groups'); if(!wrap)return;
+  wrap.innerHTML = AM_DELETE_GROUPS.map(function(g,i){ return '<label class="chk"><input type="checkbox" class="amd-grp" data-i="'+i+'" checked onchange="amdCount()"> <span>'+esc(g.name)+'</span><span class="cnt">'+g.pkgs.length+'</span></label>' }).join('')
+  amdCount() }
+function amdAll(v){ document.querySelectorAll('.amd-grp').forEach(function(c){ c.checked=v }); amdCount() }
+function amdSelected(){ const s=[]; document.querySelectorAll('.amd-grp:checked').forEach(function(c){ s.push.apply(s, AM_DELETE_GROUPS[+c.dataset.i].pkgs) }); return s }
+function amdCount(){ const n=amdSelected().length; const el=$('amd-count'); if(el)el.textContent=n+' אפליקציות נבחרו למחיקה' }
+async function amdConnect(){ try{ if(!await adbConnectShared(amdLog)) return;
+    const m=await adbShell('getprop ro.product.model'); amdLog('מחובר ✓ ('+String(m).trim()+')','ok')
+    $('amd-connect').style.display='none'; $('amd-start').style.display=''; $('amd-disconnect').style.display=''
+  }catch(e){ amdLog('כשל בחיבור: '+(e&&e.message||e),'err') } }
+async function amdDisconnect(){ try{ if(ADB&&ADB.close)await ADB.close() }catch(e){}; ADB=null; amdLog('נותק','step');
+  $('amd-connect').style.display=''; $('amd-start').style.display='none'; $('amd-disconnect').style.display='none' }
+async function amdRun(){ if(!ADB){ amdLog('אין חיבור','err'); return }
+  const sel=amdSelected(); if(!sel.length){ amdLog('לא נבחרו חבילות','err'); return }
+  $('amd-start').disabled=true; amdLog('מתחיל מחיקה — '+sel.length+' חבילות…','step')
+  let ok=0,miss=0,fail=0
+  for(const p of sel){ try{ const out=await adbShell('pm uninstall --user 0 '+p)
+      if(/Success/i.test(out)){ ok++; amdLog('הוסר '+p,'ok') }
+      else if(/not installed|Unknown package|DELETE_FAILED/i.test(out)){ miss++ }
+      else { fail++; amdLog('נכשל '+p+': '+String(out).trim(),'err') }
+    }catch(e){ fail++; amdLog('שגיאה '+p,'err') } }
+  amdLog('הושלם — '+ok+' הוסרו, '+miss+' לא היו מותקנות, '+fail+' נכשלו','step'); $('amd-start').disabled=false }
 </script>
 </body>
 </html>
