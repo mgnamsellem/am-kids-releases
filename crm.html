@@ -527,6 +527,11 @@
             <div class="hint"><b>נעול</b> = אי-אפשר לאפס/להסיר את האפליקציה. <b>פתוח</b> = אתה מאפשר לאפס את המכשיר מההגדרות (למשל לפני מכירה) — <u>המכשיר נשאר מנוהל ואפשר לנעול בחזרה בכל רגע</u>. (עובד רק במכשיר Device Owner.)</div>
           </div>
 
+          <div class="f"><label>מצב הגנה בפועל (מדווח מהמכשיר)</label>
+            <input id="d-prot" readonly>
+            <div class="hint">מה שהמכשיר <b>באמת</b> מדווח, לא מה שהוגדר. אם כתוב כאן שהמכשיר אינו Device Owner או אינו מוגן, <b>ההקצאה לא הושלמה</b>: יש לאפס את המכשיר ולסרוק את ה-QR מחדש. בלי זה אפשר לאפס את המכשיר ולמחוק את האפליקציה.</div>
+          </div>
+
           <div class="f"><label>מצב קיוסק (נעילה לאפליקציה)</label>
             <select id="d-kiosk"><option value="off">🔓 כבוי — הילד יכול לצאת (ברירת מחדל)</option><option value="on">🔒 דלוק — נעול לאפליקציה בלבד</option></select>
             <div class="hint"><b>כבוי</b> = המכשיר מתנהג כטלפון רגיל: הילד יכול לצאת מ-AM Kids ולהשתמש בשעון מעורר, בהגדרות ובאפליקציות המאושרות. <b>ההגנות נשארות פעילות בכל מצב</b> (אי-אפשר לאפס את המכשיר, למחוק את AM Kids, להיכנס לאפשרויות מפתחים או להתקין ממקור לא ידוע).<br><b>דלוק</b> = הילד נעול בתוך האפליקציה ולא יכול לצאת ממנה. השינוי נכנס לתוקף תוך דקות, בלי אתחול. (עובד רק במכשיר Device Owner.)</div>
@@ -896,6 +901,21 @@ function openDetail(id){
   $('d-lock').value=cfg.lock||'locked'
   // קיוסק: רק true מפורש = דלוק. חסר/null/false = פתוח (ברירת המחדל).
   $('d-kiosk').value=cfg.kiosk===true?'on':'off'
+  // מצב הגנה בפועל כפי שהמכשיר מדווח. undefined = גרסה ישנה שעדיין לא מדווחת.
+  ;(function(){
+    const el=$('d-prot'); if(!el) return
+    if(cfg.device_owner===undefined && cfg.protected===undefined){
+      el.value='טרם דווח (מכשיר עם גרסה ישנה, או שעדיין לא סנכרן)'
+      el.style.color=''
+      return
+    }
+    const ok = cfg.device_owner===true && cfg.protected===true
+    el.value = ok
+      ? '✅ מוגן — Device Owner פעיל, איפוס יצרן חסום'
+      : `❌ לא מוגן — Device Owner: ${cfg.device_owner===true?'כן':'לא'}, חסימת איפוס: ${cfg.protected===true?'כן':'לא'}`
+    el.style.color = ok ? 'var(--ok)' : 'var(--block)'
+    el.style.fontWeight = '800'
+  })()
   $('d-auth').value=cfg.auth==='on'?'on':'off'
   $('d-call').value=cfg.call==='off'?'off':'on'
   $('d-video').value=cfg.video==='on'?'on':'off'
