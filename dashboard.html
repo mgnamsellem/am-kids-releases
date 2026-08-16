@@ -532,6 +532,11 @@
             <div class="hint">מה שהמכשיר <b>באמת</b> מדווח, לא מה שהוגדר. אם כתוב כאן שהמכשיר אינו Device Owner או אינו מוגן, <b>ההקצאה לא הושלמה</b>: יש לאפס את המכשיר ולסרוק את ה-QR מחדש. בלי זה אפשר לאפס את המכשיר ולמחוק את האפליקציה.</div>
           </div>
 
+          <div class="f"><label>מצב טכנאי (אפשרויות מפתחים / USB)</label>
+            <select id="d-usbdbg"><option value="off">🔒 חסום (ברירת מחדל)</option><option value="on">🔧 פתוח זמנית לטכנאי</option></select>
+            <div class="hint"><b>פתוח</b> מאפשר להיכנס לאפשרויות מפתחים ולהפעיל ניפוי באגים ב-USB, כדי להריץ <b>AM Delete</b> בכבל ולמחוק אפליקציות לא כשרות. <b>לכבות מיד בסיום.</b> כל שאר ההגנות (חסימת איפוס, חסימת הסרה) נשארות פעילות גם במצב הזה. השינוי נכנס לתוקף תוך כדקה.</div>
+          </div>
+
           <div class="f"><label>מצב קיוסק (נעילה לאפליקציה)</label>
             <select id="d-kiosk"><option value="off">🔓 כבוי — הילד יכול לצאת (ברירת מחדל)</option><option value="on">🔒 דלוק — נעול לאפליקציה בלבד</option></select>
             <div class="hint"><b>כבוי</b> = המכשיר מתנהג כטלפון רגיל: הילד יכול לצאת מ-AM Kids ולהשתמש בשעון מעורר, בהגדרות ובאפליקציות המאושרות. <b>ההגנות נשארות פעילות בכל מצב</b> (אי-אפשר לאפס את המכשיר, למחוק את AM Kids, להיכנס לאפשרויות מפתחים או להתקין ממקור לא ידוע).<br><b>דלוק</b> = הילד נעול בתוך האפליקציה ולא יכול לצאת ממנה. השינוי נכנס לתוקף תוך דקות, בלי אתחול. (עובד רק במכשיר Device Owner.)</div>
@@ -901,6 +906,7 @@ function openDetail(id){
   $('d-lock').value=cfg.lock||'locked'
   // קיוסק: רק true מפורש = דלוק. חסר/null/false = פתוח (ברירת המחדל).
   $('d-kiosk').value=cfg.kiosk===true?'on':'off'
+  $('d-usbdbg').value=cfg.usb_debug===true?'on':'off'
   // מצב הגנה בפועל כפי שהמכשיר מדווח. undefined = גרסה ישנה שעדיין לא מדווחת.
   ;(function(){
     const el=$('d-prot'); if(!el) return
@@ -910,10 +916,11 @@ function openDetail(id){
       return
     }
     const ok = cfg.device_owner===true && cfg.protected===true
+    const dbg = cfg.usb_debug===true ? ' · 🔧 מצב טכנאי פתוח, לכבות בסיום' : ''
     el.value = ok
-      ? '✅ מוגן — Device Owner פעיל, איפוס יצרן חסום'
-      : `❌ לא מוגן — Device Owner: ${cfg.device_owner===true?'כן':'לא'}, חסימת איפוס: ${cfg.protected===true?'כן':'לא'}`
-    el.style.color = ok ? 'var(--ok)' : 'var(--block)'
+      ? '✅ מוגן — Device Owner פעיל, איפוס יצרן חסום' + dbg
+      : `❌ לא מוגן — Device Owner: ${cfg.device_owner===true?'כן':'לא'}, חסימת איפוס: ${cfg.protected===true?'כן':'לא'}` + dbg
+    el.style.color = (ok && !cfg.usb_debug) ? 'var(--ok)' : 'var(--block)'
     el.style.fontWeight = '800'
   })()
   $('d-auth').value=cfg.auth==='on'?'on':'off'
@@ -995,6 +1002,7 @@ async function saveDevice(){
   cfg.bluetooth=$('d-bt').value
   cfg.lock=$('d-lock').value
   cfg.kiosk=$('d-kiosk').value==='on'   // בוליאני: רק true נועל את המכשיר
+  cfg.usb_debug=$('d-usbdbg').value==='on'  // מצב טכנאי: פותח אפשרויות מפתחים
   cfg.auth=$('d-auth').value
   cfg.call=$('d-call').value
   cfg.video=$('d-video').value
