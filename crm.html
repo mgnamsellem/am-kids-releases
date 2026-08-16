@@ -416,7 +416,11 @@
           <button class="btn" id="amd-start" style="width:auto;display:none" onclick="amdRun()">🗑️ התחל מחיקה</button>
           <button class="b-ghost" id="amd-disconnect" style="display:none" onclick="amdDisconnect()">נתק</button>
           <button class="btn" id="amd-remote" style="width:auto;background:var(--ok)" onclick="amdRemote()">📡 מחיקה מרחוק (בלי כבל)</button>
+          <button class="b-ghost" id="amd-scan" onclick="amdScan()">📲 מה מותקן במכשיר?</button>
         </div>
+        <p class="cardnote">הרשימה למטה היא קטלוג כללי לכל היצרנים, ולכן חלק מהחבילות פשוט לא קיימות בדגם שמולך.
+          לחיצה על <b>"מה מותקן במכשיר?"</b> מבקשת מהמכשיר לדווח מה באמת יש עליו, והרשימה האמיתית תופיע כאן למעלה תוך כדקה.
+          כך לא מסמנים חבילות שלא קיימות ומקבלים תוצאה שנראית כמו כישלון.</p>
         <p class="cardnote"><b>מחיקה מרחוק</b> לא דורשת כבל, לא אפשרויות מפתחים ולא ADB: המכשיר מסיר את האפליקציות בעצמו בתור Device Owner. זו גם הדרך שעוקפת את חסימת MIUI בשיאומי. בוחרים מכשיר בעמוד הלקוחות, מסמנים כאן מה למחוק, ולוחצים. הפעולה תתבצע תוך כדקה.</p>
         <p class="cardnote" id="amd-unsupported" style="display:none;color:var(--block)">
           הדפדפן לא תומך ב-WebUSB. פתח ב-Chrome או Edge במחשב.
@@ -432,6 +436,7 @@
           <button class="b-ghost" onclick="amdAll(false)">נקה הכל</button>
           <span class="hint" id="amd-count" style="align-self:center"></span>
         </div>
+        <div id="amd-live" style="margin-top:10px"></div>
         <div id="amd-groups" style="margin-top:10px"></div>
         <div id="amd-noresult" class="hint hide" style="text-align:center;padding:14px">לא נמצאו אפליקציות</div>
       </div>
@@ -768,7 +773,9 @@ function showPage(p){
   if(p==='customers') $('nav-customers').classList.add('active')
   if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
   if(p==='provision'){ $('nav-provision').classList.add('active'); initProvision() }
-  if(p==='amdelete'){ $('nav-amdelete').classList.add('active'); amdInit() }
+  if(p==='amdelete'){ $('nav-amdelete').classList.add('active'); amdInit()
+    // מרעננים בכל כניסה לעמוד, כי ייתכן שבינתיים נבחר מכשיר אחר בעמוד הלקוחות.
+    try{ amdLiveRender() }catch(e){} }
   if(p==='stores'){ $('nav-stores').classList.add('active'); renderStores() }
   if(p==='detail') $('nav-customers').classList.add('active')
 }
@@ -921,7 +928,10 @@ function openDetail(id){
     const dbg = cfg.usb_debug===true ? ' · 🔧 מצב טכנאי פתוח, לכבות בסיום' : ''
     const ad = cfg.amdelete_result
     if(ad){
+      // "לא הותקנו" מופרד מ"נכשלו" בכוונה: חבילה מהקטלוג שלא קיימת בדגם הזה
+      // אינה תקלה, וכשהכל נספר יחד התוצאה נראית כמו כישלון גורף.
       el.title = 'AM Delete אחרון: הוסרו '+(ad.removed||0)+', נוטרלו '+(ad.hidden||0)+
+                 ', לא היו מותקנות '+(ad.absent||0)+
                  ', נכשלו '+(ad.failed||0)+(ad.failures&&ad.failures.length?(' ('+ad.failures.join(', ')+')'):'')
     }
     el.value = ok
@@ -1280,6 +1290,60 @@ function amdRender(){ const wrap=$('amd-groups'); if(!wrap)return;
   amdCount() }
 function amdToggle(i){ var el=$('amd-apps-'+i), ch=$('amd-chev-'+i); if(!el)return;
   el.classList.toggle('hide'); if(ch)ch.classList.toggle('open') }
+
+// ── מה מותקן באמת על המכשיר ──────────────────────────────────────────────
+// הקטלוג הסטטי משותף לכל היצרנים, ולכן ברוב המכשירים חלק גדול מהחבילות בו
+// פשוט לא קיים. כאן מבקשים מהמכשיר לדווח מה יש עליו בפועל, ומציגים את זה
+// למעלה. ברירת המחדל היא **לא מסומן**, כי הרשימה כוללת גם הגדרות, טלפון
+// ושעון, ומחיקה שלהם תשבש את המכשיר.
+function amdLiveRender(){
+  var wrap=$('amd-live'); if(!wrap)return
+  var rep = CURRENT && CURRENT.config && CURRENT.config.installed_report
+  if(!rep || !Array.isArray(rep.apps) || !rep.apps.length){ wrap.innerHTML=''; return }
+  var when = rep.at ? new Date(rep.at).toLocaleString('he-IL') : ''
+  var apps = rep.apps.slice().sort(function(a,b){
+    return String(a.l||a.p).localeCompare(String(b.l||b.p),'he') })
+  var rows = apps.map(function(a){
+    return '<label class="amd-app"><input type="checkbox" class="amd-pkg" data-i="live" value="'+esc(a.p)+'" onchange="amdCount()">'+
+      '<span class="amd-appinfo"><span class="nm">'+esc(a.l||amdName(a.p))+'</span><span class="pkg">'+esc(a.p)+'</span></span></label>'
+  }).join('')
+  wrap.innerHTML = '<div class="amd-group">'+
+    '<div class="amd-ghdr" onclick="amdToggle(\'live\')">'+
+      '<span class="amd-gicon">📲</span>'+
+      '<span class="amd-gname">מותקן במכשיר עכשיו'+(when?' · '+esc(when):'')+'</span>'+
+      '<span class="cnt">'+apps.length+'</span>'+
+      '<span class="amd-chev" id="amd-chev-live">▾</span>'+
+    '</div>'+
+    '<div class="amd-apps hide" id="amd-apps-live">'+
+      '<p class="cardnote" style="margin:6px 10px">זו הרשימה האמיתית מהמכשיר. שים לב: היא כוללת גם הגדרות, טלפון ושעון. סמן רק מה שבאמת צריך להיעלם.</p>'+
+      rows+'</div>'+
+  '</div>'
+}
+
+// שולח למכשיר בקשה לדווח מה מותקן עליו, ומרענן את הכרטיס כשהדיווח מגיע.
+async function amdScan(){
+  if(!CURRENT){ amdLog('לא נבחר מכשיר. פתח את כרטיס הלקוח בעמוד "לקוחות" ואז חזור לכאן.','err'); return }
+  var nonce=String(Date.now())
+  var {error}=await db.rpc('merge_device_config',{p_id:CURRENT.id,p_patch:{command:{type:'list_apps',nonce:nonce}}})
+  if(error){ amdLog('שליחה נכשלה: '+error.message,'err'); return }
+  amdLog('נשלחה בקשה למכשיר. ממתין לדיווח (עד כדקה)…','step')
+  var tries=0
+  var timer=setInterval(async function(){
+    tries++
+    var {data,error:e2}=await db.from('devices').select('config').eq('id',CURRENT.id).single()
+    if(!e2 && data && data.config){
+      CURRENT.config=data.config
+      var rep=data.config.installed_report
+      if(rep && rep.apps && rep.apps.length){
+        clearInterval(timer); amdLiveRender()
+        amdLog('✓ המכשיר דיווח '+rep.apps.length+' אפליקציות. הרשימה מופיעה למעלה.','ok')
+        return
+      }
+    }
+    if(tries>=20){ clearInterval(timer)
+      amdLog('אין עדיין דיווח. ודא שהמכשיר דלוק, מחובר לרשת, ומעודכן לגרסה 3.9.158 ומעלה.','err') }
+  },6000)
+}
 function amdSearch(){
   var q=(($('amd-search')||{}).value||'').trim().toLowerCase()
   // סינון כל שורות האפליקציות לפי שם ידידותי או שם חבילה
@@ -1290,7 +1354,20 @@ function amdSearch(){
     lbl.style.display = (!q || pkg.indexOf(q)>=0 || nm.indexOf(q)>=0) ? '' : 'none'
   })
   // לכל קטגוריה: כשמחפשים — מרחיבים ומסתירים קטגוריות ריקות; כשמנקים — מקפלים חזרה
-  var groups=document.querySelectorAll('.amd-group'); var totalVis=0
+  // חשוב: מגבילים ל-#amd-groups בלבד. קבוצת "מותקן במכשיר" יושבת מחוץ לו,
+  // ואם היא נכללת כאן כל האינדקסים זזים באחד והסינון מסמן את הקבוצה הלא נכונה.
+  var groups=document.querySelectorAll('#amd-groups .amd-group'); var totalVis=0
+  var liveVis=0
+  document.querySelectorAll('.amd-pkg[data-i="live"]').forEach(function(inp){
+    var l=inp.closest('.amd-app'); if(l && l.style.display!=='none') liveVis++ })
+  totalVis+=liveVis
+  var liveG=document.querySelector('#amd-live .amd-group')
+  var liveApps=$('amd-apps-live'), liveChev=$('amd-chev-live')
+  if(liveG){
+    if(q){ liveG.style.display=liveVis?'':'none'
+      if(liveVis&&liveApps){ liveApps.classList.remove('hide'); if(liveChev)liveChev.classList.add('open') } }
+    else { liveG.style.display=''; if(liveApps)liveApps.classList.add('hide'); if(liveChev)liveChev.classList.remove('open') }
+  }
   AM_DELETE_GROUPS.forEach(function(g,i){
     var vis=0; document.querySelectorAll('.amd-pkg[data-i="'+i+'"]').forEach(function(inp){
       var l=inp.closest('.amd-app'); if(l && l.style.display!=='none') vis++ })
@@ -1302,7 +1379,9 @@ function amdSearch(){
   var nr=$('amd-noresult'); if(nr)nr.classList.toggle('hide', !(q && totalVis===0))
 }
 function amdMaster(i,v){ document.querySelectorAll('.amd-pkg[data-i="'+i+'"]').forEach(function(c){ c.checked=v }); amdCount() }
-function amdAll(v){ document.querySelectorAll('.amd-pkg').forEach(function(c){ c.checked=v });
+// "סמן הכל" נוגע רק בקטלוג. קבוצת "מותקן במכשיר" נשארת ידנית בכוונה, כי היא
+// כוללת גם הגדרות, טלפון ושעון וסימון גורף שלה ישבש את המכשיר.
+function amdAll(v){ document.querySelectorAll('#amd-groups .amd-pkg').forEach(function(c){ c.checked=v });
   document.querySelectorAll('.amd-master').forEach(function(c){ c.checked=v }); amdCount() }
 function amdSelected(){ var s=[]; document.querySelectorAll('.amd-pkg:checked').forEach(function(c){ s.push(c.value) }); return s }
 function amdCount(){ var n=amdSelected().length; var el=$('amd-count'); if(el)el.textContent=n+' אפליקציות נבחרו למחיקה';
