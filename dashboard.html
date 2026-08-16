@@ -415,7 +415,9 @@
           <button class="btn" id="amd-connect" style="width:auto" onclick="amdConnect()">🔌 חבר מכשיר</button>
           <button class="btn" id="amd-start" style="width:auto;display:none" onclick="amdRun()">🗑️ התחל מחיקה</button>
           <button class="b-ghost" id="amd-disconnect" style="display:none" onclick="amdDisconnect()">נתק</button>
+          <button class="btn" id="amd-remote" style="width:auto;background:var(--ok)" onclick="amdRemote()">📡 מחיקה מרחוק (בלי כבל)</button>
         </div>
+        <p class="cardnote"><b>מחיקה מרחוק</b> לא דורשת כבל, לא אפשרויות מפתחים ולא ADB: המכשיר מסיר את האפליקציות בעצמו בתור Device Owner. זו גם הדרך שעוקפת את חסימת MIUI בשיאומי. בוחרים מכשיר בעמוד הלקוחות, מסמנים כאן מה למחוק, ולוחצים. הפעולה תתבצע תוך כדקה.</p>
         <p class="cardnote" id="amd-unsupported" style="display:none;color:var(--block)">
           הדפדפן לא תומך ב-WebUSB. פתח ב-Chrome או Edge במחשב.
         </p>
@@ -917,6 +919,11 @@ function openDetail(id){
     }
     const ok = cfg.device_owner===true && cfg.protected===true
     const dbg = cfg.usb_debug===true ? ' · 🔧 מצב טכנאי פתוח, לכבות בסיום' : ''
+    const ad = cfg.amdelete_result
+    if(ad){
+      el.title = 'AM Delete אחרון: הוסרו '+(ad.removed||0)+', נוטרלו '+(ad.hidden||0)+
+                 ', נכשלו '+(ad.failed||0)+(ad.failures&&ad.failures.length?(' ('+ad.failures.join(', ')+')'):'')
+    }
     el.value = ok
       ? '✅ מוגן — Device Owner פעיל, איפוס יצרן חסום' + dbg
       : `❌ לא מוגן — Device Owner: ${cfg.device_owner===true?'כן':'לא'}, חסימת איפוס: ${cfg.protected===true?'כן':'לא'}` + dbg
@@ -1309,16 +1316,49 @@ async function amdConnect(){ try{ if(!await adbConnectShared(amdLog)) return;
   }catch(e){ amdLog('כשל בחיבור: '+(e&&e.message||e),'err') } }
 async function amdDisconnect(){ try{ if(ADB&&ADB.close)await ADB.close() }catch(e){}; ADB=null; amdLog('נותק','step');
   $('amd-connect').style.display=''; $('amd-start').style.display='none'; $('amd-disconnect').style.display='none' }
+// מחיקה מרחוק: שולחת פקודה למכשיר, שמסיר בעצמו כ-Device Owner. בלי כבל.
+async function amdRemote(){
+  if(!CURRENT){ amdLog('לא נבחר מכשיר. פתח את כרטיס הלקוח בעמוד "לקוחות" ואז חזור לכאן.','err'); return }
+  const sel=amdSelected(); if(!sel.length){ amdLog('לא נבחרו חבילות','err'); return }
+  const who=CURRENT.customer_name||CURRENT.model||CURRENT.id
+  if(!confirm('לשלוח מחיקה מרחוק של '+sel.length+' אפליקציות?\n\nמכשיר: '+who+'\nהפעולה תתבצע תוך כדקה, בלי כבל.')) return
+  const patch={ command:{ type:'remove_apps', nonce:String(Date.now()), packages:sel } }
+  const {error}=await db.rpc('merge_device_config',{p_id:CURRENT.id,p_patch:patch})
+  if(error){ amdLog('שליחה נכשלה: '+error.message,'err'); return }
+  CURRENT.config={...(CURRENT.config||{}), ...patch}
+  amdLog('נשלחה מחיקה מרחוק ל-'+who+' ('+sel.length+' חבילות). התוצאה תופיע בכרטיס המכשיר תוך כדקה.','ok')
+}
+
 async function amdRun(){ if(!ADB){ amdLog('אין חיבור','err'); return }
   const sel=amdSelected(); if(!sel.length){ amdLog('לא נבחרו חבילות','err'); return }
   $('amd-start').disabled=true; amdLog('מתחיל מחיקה — '+sel.length+' חבילות…','step')
   let ok=0,miss=0,fail=0
-  for(const p of sel){ try{ const out=await adbShell('pm uninstall --user 0 '+p)
-      if(/Success/i.test(out)){ ok++; amdLog('הוסר '+p,'ok') }
-      else if(/not installed|Unknown package|DELETE_FAILED/i.test(out)){ miss++ }
-      else { fail++; amdLog('נכשל '+p+': '+String(out).trim(),'err') }
-    }catch(e){ fail++; amdLog('שגיאה '+p,'err') } }
-  amdLog('הושלם — '+ok+' הוסרו, '+miss+' לא היו מותקנות, '+fail+' נכשלו','step'); $('amd-start').disabled=false }
+  // בדיקת שפיות לפני הכל: אם ADB לא מחזיר פלט בכלל, אין טעם לרוץ על 50 חבילות
+  // ולהציג 50 כישלונות. עדיף להגיד מיד מה לא עובד.
+  try{
+    const probe=await adbShell('echo amdok')
+    if(!/amdok/.test(String(probe||''))){
+      amdLog('ה-ADB לא מחזיר פלט. נתק וחבר מחדש את הכבל, ואשר "אפשר ניפוי באגים ב-USB" במכשיר.','err')
+      $('amd-start').disabled=false; return
+    }
+  }catch(e){ amdLog('אין תקשורת ADB: '+(e&&e.message||e),'err'); $('amd-start').disabled=false; return }
+
+  let disabled=0
+  for(const p of sel){ try{ let out=await adbShell('pm uninstall --user 0 '+p)
+      if(/Success/i.test(out)){ ok++; amdLog('הוסר '+p,'ok'); continue }
+      if(/not installed for|Unknown package/i.test(out)){ miss++; continue }
+      // אפליקציית מערכת שאי אפשר להסיר: מנטרלים אותה במקום. התוצאה מבחינת
+      // הילד זהה, האפליקציה נעלמת מהמסך ולא ניתן להפעיל אותה.
+      const dis=await adbShell('pm disable-user --user 0 '+p)
+      if(/disabled|new state/i.test(dis)){ disabled++; amdLog('נוטרל (אפליקציית מערכת) '+p,'ok'); continue }
+      fail++
+      amdLog('נכשל '+p+' → uninstall: '+String(out).trim()+' | disable: '+String(dis).trim(),'err')
+    }catch(e){ fail++; amdLog('שגיאה '+p+': '+(e&&e.message||e),'err') } }
+  amdLog('הושלם — '+ok+' הוסרו, '+disabled+' נוטרלו, '+miss+' לא היו מותקנות, '+fail+' נכשלו','step')
+  if(fail>0){
+    amdLog('טיפ לשיאומי: אם הכישלון חוזר, ההגבלה היא של MIUI. פתח אפשרויות מפתחים והפעל גם "USB debugging (Security settings)". לחלופין השתמש במחיקה מרחוק מלוח הבקרה, שלא דורשת כבל כלל.','step')
+  }
+  $('amd-start').disabled=false }
 </script>
 </body>
 </html>
