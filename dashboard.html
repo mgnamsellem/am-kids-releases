@@ -419,8 +419,9 @@
           <button class="b-ghost" id="amd-scan" onclick="amdScan()">📲 מה מותקן במכשיר?</button>
         </div>
         <p class="cardnote">הרשימה למטה היא קטלוג כללי לכל היצרנים, ולכן חלק מהחבילות פשוט לא קיימות בדגם שמולך.
-          לחיצה על <b>"מה מותקן במכשיר?"</b> מבקשת מהמכשיר לדווח מה באמת יש עליו, והרשימה האמיתית תופיע כאן למעלה תוך כדקה.
-          כך לא מסמנים חבילות שלא קיימות ומקבלים תוצאה שנראית כמו כישלון.</p>
+          לחיצה על <b>"מה מותקן במכשיר?"</b> מבקשת מהמכשיר לדווח מה באמת יש עליו, והרשימה האמיתית מופיעה כאן למעלה תוך שניות.
+          כך לא מסמנים חבילות שלא קיימות ומקבלים תוצאה שנראית כמו כישלון.
+          <b>המכשיר חייב להיות דלוק ומחובר לרשת</b>, אבל האפליקציה לא חייבת להיות פתוחה.</p>
         <p class="cardnote"><b>מחיקה מרחוק</b> לא דורשת כבל, לא אפשרויות מפתחים ולא ADB: המכשיר מסיר את האפליקציות בעצמו בתור Device Owner. זו גם הדרך שעוקפת את חסימת MIUI בשיאומי. בוחרים מכשיר בעמוד הלקוחות, מסמנים כאן מה למחוק, ולוחצים. הפעולה תתבצע תוך כדקה.</p>
         <p class="cardnote" id="amd-unsupported" style="display:none;color:var(--block)">
           הדפדפן לא תומך ב-WebUSB. פתח ב-Chrome או Edge במחשב.
@@ -1314,35 +1315,56 @@ function amdLiveRender(){
       '<span class="cnt">'+apps.length+'</span>'+
       '<span class="amd-chev" id="amd-chev-live">▾</span>'+
     '</div>'+
-    '<div class="amd-apps hide" id="amd-apps-live">'+
+    '<div class="amd-apps" id="amd-apps-live">'+
       '<p class="cardnote" style="margin:6px 10px">זו הרשימה האמיתית מהמכשיר. שים לב: היא כוללת גם הגדרות, טלפון ושעון. סמן רק מה שבאמת צריך להיעלם.</p>'+
       rows+'</div>'+
   '</div>'
 }
 
 // שולח למכשיר בקשה לדווח מה מותקן עליו, ומרענן את הכרטיס כשהדיווח מגיע.
+// שומר גם את חותמת הזמן של הדיווח הקודם, כדי לזהות דיווח **חדש** ולא להציג
+// שוב רשימה ישנה כאילו היא תשובה טרייה.
+var AMD_SCAN_TIMER=null
 async function amdScan(){
   if(!CURRENT){ amdLog('לא נבחר מכשיר. פתח את כרטיס הלקוח בעמוד "לקוחות" ואז חזור לכאן.','err'); return }
+  // לחיצה חוזרת מבטלת את הסבב הקודם. בלי זה כל לחיצה פתחה טיימר נוסף,
+  // וכולם הציפו את היומן באותה הודעה שוב ושוב.
+  if(AMD_SCAN_TIMER){ clearInterval(AMD_SCAN_TIMER); AMD_SCAN_TIMER=null }
+  var btn=$('amd-scan'); if(btn){ btn.disabled=true; btn.textContent='📲 ממתין למכשיר…' }
+  function done(){ if(AMD_SCAN_TIMER){clearInterval(AMD_SCAN_TIMER); AMD_SCAN_TIMER=null}
+    if(btn){ btn.disabled=false; btn.textContent='📲 מה מותקן במכשיר?' } }
+  var prevAt=(CURRENT.config&&CURRENT.config.installed_report||{}).at||''
   var nonce=String(Date.now())
   var {error}=await db.rpc('merge_device_config',{p_id:CURRENT.id,p_patch:{command:{type:'list_apps',nonce:nonce}}})
-  if(error){ amdLog('שליחה נכשלה: '+error.message,'err'); return }
-  amdLog('נשלחה בקשה למכשיר. ממתין לדיווח (עד כדקה)…','step')
+  if(error){ amdLog('שליחה נכשלה: '+error.message,'err'); done(); return }
+  amdLog('נשלחה בקשה למכשיר. ממתין לדיווח…','step')
   var tries=0
-  var timer=setInterval(async function(){
+  AMD_SCAN_TIMER=setInterval(async function(){
     tries++
-    var {data,error:e2}=await db.from('devices').select('config').eq('id',CURRENT.id).single()
-    if(!e2 && data && data.config){
-      CURRENT.config=data.config
-      var rep=data.config.installed_report
-      if(rep && rep.apps && rep.apps.length){
-        clearInterval(timer); amdLiveRender()
+    var {data,error:e2}=await db.from('devices').select('config,last_seen,app_version').eq('id',CURRENT.id).single()
+    if(!e2 && data){
+      if(data.config) CURRENT.config=data.config
+      if(data.last_seen) CURRENT.last_seen=data.last_seen
+      var rep=(data.config||{}).installed_report
+      if(rep && rep.apps && rep.apps.length && rep.at!==prevAt){
+        done(); amdLiveRender()
         amdLog('✓ המכשיר דיווח '+rep.apps.length+' אפליקציות. הרשימה מופיעה למעלה.','ok')
         return
       }
     }
-    if(tries>=20){ clearInterval(timer)
-      amdLog('אין עדיין דיווח. ודא שהמכשיר דלוק, מחובר לרשת, ומעודכן לגרסה 3.9.158 ומעלה.','err') }
-  },6000)
+    if(tries>=15){
+      done()
+      // מסבירים **למה** אין תשובה, במקום הודעה כללית. הסיבה הכי שכיחה היא
+      // שהמכשיר פשוט לא מדבר עם השרת כרגע.
+      var d=CURRENT||{}, ago=null
+      if(d.last_seen){ ago=Math.round((Date.now()-new Date(d.last_seen).getTime())/60000) }
+      if(ago!==null && ago>2){
+        amdLog('המכשיר לא סנכרן כבר '+ago+' דקות (סנכרון אחרון: '+new Date(d.last_seen).toLocaleString('he-IL')+'). הוא כבוי, בלי רשת, או שהאפליקציה נסגרה. הדלק אותו ונסה שוב.','err')
+      } else {
+        amdLog('המכשיר מסנכרן אבל לא החזיר רשימה. גרסה במכשיר: '+(d.app_version||'לא ידוע')+'. נדרשת 3.9.159 ומעלה.','err')
+      }
+    }
+  },4000)
 }
 function amdSearch(){
   var q=(($('amd-search')||{}).value||'').trim().toLowerCase()
@@ -1366,7 +1388,9 @@ function amdSearch(){
   if(liveG){
     if(q){ liveG.style.display=liveVis?'':'none'
       if(liveVis&&liveApps){ liveApps.classList.remove('hide'); if(liveChev)liveChev.classList.add('open') } }
-    else { liveG.style.display=''; if(liveApps)liveApps.classList.add('hide'); if(liveChev)liveChev.classList.remove('open') }
+    // הרשימה האמיתית נשארת פתוחה גם כשמנקים חיפוש. היא העיקר בעמוד הזה,
+    // ואין סיבה שהמפעיל יצטרך לפתוח אותה שוב בכל פעם.
+    else { liveG.style.display=''; if(liveChev)liveChev.classList.add('open') }
   }
   AM_DELETE_GROUPS.forEach(function(g,i){
     var vis=0; document.querySelectorAll('.amd-pkg[data-i="'+i+'"]').forEach(function(inp){
@@ -1396,16 +1420,53 @@ async function amdConnect(){ try{ if(!await adbConnectShared(amdLog)) return;
 async function amdDisconnect(){ try{ if(ADB&&ADB.close)await ADB.close() }catch(e){}; ADB=null; amdLog('נותק','step');
   $('amd-connect').style.display=''; $('amd-start').style.display='none'; $('amd-disconnect').style.display='none' }
 // מחיקה מרחוק: שולחת פקודה למכשיר, שמסיר בעצמו כ-Device Owner. בלי כבל.
+// אחרי השליחה עוקבים אחרי התוצאה ומדפיסים אותה ליומן, כדי שלא תישאר בלי
+// לדעת אם קרה משהו. זה מה שחסר קודם: הכפתור נראה כאילו עבד תמיד.
+var AMD_DEL_TIMER=null
 async function amdRemote(){
   if(!CURRENT){ amdLog('לא נבחר מכשיר. פתח את כרטיס הלקוח בעמוד "לקוחות" ואז חזור לכאן.','err'); return }
   const sel=amdSelected(); if(!sel.length){ amdLog('לא נבחרו חבילות','err'); return }
   const who=CURRENT.customer_name||CURRENT.model||CURRENT.id
-  if(!confirm('לשלוח מחיקה מרחוק של '+sel.length+' אפליקציות?\n\nמכשיר: '+who+'\nהפעולה תתבצע תוך כדקה, בלי כבל.')) return
-  const patch={ command:{ type:'remove_apps', nonce:String(Date.now()), packages:sel } }
+  if(!confirm('לשלוח מחיקה מרחוק של '+sel.length+' אפליקציות?\n\nמכשיר: '+who)) return
+  if(AMD_DEL_TIMER){ clearInterval(AMD_DEL_TIMER); AMD_DEL_TIMER=null }
+  const prevAt=(CURRENT.config&&CURRENT.config.amdelete_result||{}).at||''
+  const nonce=String(Date.now())
+  const patch={ command:{ type:'remove_apps', nonce:nonce, packages:sel } }
   const {error}=await db.rpc('merge_device_config',{p_id:CURRENT.id,p_patch:patch})
   if(error){ amdLog('שליחה נכשלה: '+error.message,'err'); return }
   CURRENT.config={...(CURRENT.config||{}), ...patch}
-  amdLog('נשלחה מחיקה מרחוק ל-'+who+' ('+sel.length+' חבילות). התוצאה תופיע בכרטיס המכשיר תוך כדקה.','ok')
+  amdLog('נשלחה מחיקה מרחוק ל-'+who+' ('+sel.length+' חבילות). ממתין לתוצאה…','step')
+  let tries=0
+  AMD_DEL_TIMER=setInterval(async function(){
+    tries++
+    const {data,error:e2}=await db.from('devices').select('config,last_seen,app_version').eq('id',CURRENT.id).single()
+    if(!e2 && data){
+      if(data.config) CURRENT.config=data.config
+      if(data.last_seen) CURRENT.last_seen=data.last_seen
+      const r=(data.config||{}).amdelete_result
+      if(r && r.at!==prevAt && String(r.nonce)===nonce){
+        clearInterval(AMD_DEL_TIMER); AMD_DEL_TIMER=null
+        const line='התקבל: הוסרו '+(r.removed||0)+', נוטרלו '+(r.hidden||0)+
+                   ', לא היו מותקנות '+(r.absent||0)+', נכשלו '+(r.failed||0)
+        amdLog(line, (r.failed||0)===0 ? 'ok' : 'err')
+        if(r.failures&&r.failures.length) amdLog('נכשלו: '+r.failures.join(', '),'err')
+        if(r.error) amdLog('סיבה טכנית: '+r.error,'err')
+        if((r.absent||0)>0) amdLog('שים לב: '+(r.absent)+' חבילות פשוט לא קיימות בדגם הזה. זו לא תקלה. לחץ "מה מותקן במכשיר?" כדי לבחור מהרשימה האמיתית.','step')
+        return
+      }
+    }
+    if(tries>=20){
+      clearInterval(AMD_DEL_TIMER); AMD_DEL_TIMER=null
+      const d=CURRENT||{}
+      let ago=null
+      if(d.last_seen){ ago=Math.round((Date.now()-new Date(d.last_seen).getTime())/60000) }
+      if(ago!==null && ago>2){
+        amdLog('אין תוצאה. המכשיר לא סנכרן כבר '+ago+' דקות (אחרון: '+new Date(d.last_seen).toLocaleString('he-IL')+'). הוא כבוי, בלי רשת, או שהאפליקציה נסגרה.','err')
+      } else {
+        amdLog('אין תוצאה עדיין. גרסה במכשיר: '+(d.app_version||'לא ידוע')+'. התוצאה תופיע בכרטיס המכשיר כשתגיע.','err')
+      }
+    }
+  },4000)
 }
 
 async function amdRun(){ if(!ADB){ amdLog('אין חיבור','err'); return }
