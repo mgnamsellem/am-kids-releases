@@ -1165,14 +1165,23 @@ async function adbConnectShared(log){
     import('https://esm.sh/@yume-chan/adb@1.1.0'),
     import('https://esm.sh/@yume-chan/adb-credential-web@1.1.0'),
   ])
-  const Manager = m1.AdbDaemonWebUsbDeviceManager.BROWSER
-  if(!Manager){ log('WebUSB לא זמין בדפדפן הזה','err'); return false }
+  const Manager = m1.AdbDaemonWebUsbDeviceManager && m1.AdbDaemonWebUsbDeviceManager.BROWSER
+  if(!Manager){ log('WebUSB לא זמין בדפדפן הזה (צריך Chrome או Edge, ובחיבור מאובטח)','err'); return false }
   log('בחר את המכשיר בחלון שנפתח…','step')
   const dev = await Manager.requestDevice()
   if(!dev){ log('לא נבחר מכשיר','err'); return false }
   log('מתחבר… (אשר "ניפוי USB" במכשיר אם קופץ)','step')
   const connection = await dev.connect()
-  const credentialStore = new m3.AdbWebCredentialStore('AM Kids Dashboard')
+  // ⚠️ AdbWebCredentialStore הוא **ייצוא ברירת המחדל** של החבילה, לא ייצוא בשם.
+  // כשקראנו לו כ-m3.AdbWebCredentialStore קיבלנו undefined, ומכאן השגיאה
+  // "is not a constructor" שהפילה כל חיבור USB מהדשבורד. בודקים את שתי הצורות
+  // כדי שגם שינוי עתידי באריזה של החבילה לא ישבור את זה בלי הודעה ברורה.
+  const CredentialStore = m3.default || m3.AdbWebCredentialStore
+  if(typeof CredentialStore !== 'function'){
+    log('מנוע ה-ADB נטען אבל מחסן המפתחות לא זמין — השתמש בסקריפט הידני','err')
+    return false
+  }
+  const credentialStore = new CredentialStore('AM Kids Dashboard')
   const transport = await m2.AdbDaemonTransport.authenticate({ serial: dev.serial, connection, credentialStore })
   ADB = new m2.Adb(transport)
   return true
