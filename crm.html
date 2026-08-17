@@ -417,7 +417,8 @@
           <button class="b-ghost" id="amd-disconnect" style="display:none" onclick="amdDisconnect()">נתק</button>
           <button class="btn" id="amd-remote" style="width:auto;background:var(--ok)" onclick="amdRemote()">📡 מחיקה מרחוק (בלי כבל)</button>
           <button class="b-ghost" id="amd-scan" onclick="amdScan()">📲 מה מותקן במכשיר?</button>
-          <button class="btn" id="amd-restore" style="width:auto;display:none;background:#2C8BF0" onclick="amdRestore()">♻️ שחזר הכל</button>
+          <button class="btn" id="amd-restore" style="width:auto;display:none;background:#2C8BF0" onclick="amdRestore()">♻️ שחזר הכל (כבל)</button>
+          <button class="btn" id="amd-restore-remote" style="width:auto;background:#2C8BF0" onclick="amdRestoreRemote()">♻️ שחזר הכל מרחוק</button>
         </div>
         <p class="cardnote" style="border-right:3px solid #2C8BF0;padding-right:10px">
           <b>♻️ שחזור:</b> מחיקה כאן אף פעם לא מוחקת אפליקציית מערכת מהמכשיר באמת. היא רק מסירה אותה
@@ -1607,6 +1608,53 @@ function amdParsePkgs(out){
   })
   return set
 }
+// שחזור מרחוק, בלי כבל: המכשיר מחזיר בעצמו כ-Device Owner. רשימה ריקה
+// אומרת "שחזר את כל מה שמוסתר או מנוטרל", והמכשיר מחליט בעצמו מה חסר.
+var AMD_RST_TIMER=null
+async function amdRestoreRemote(){
+  if(!CURRENT){ amdLog('לא נבחר מכשיר. פתח את כרטיס הלקוח בעמוד "לקוחות" ואז חזור לכאן.','err'); return }
+  const who=CURRENT.customer_name||CURRENT.model||CURRENT.id
+  const sel=amdSelected()
+  const what = sel.length ? (sel.length+' אפליקציות שנבחרו') : 'כל מה שהוסר או נוטרל'
+  if(!confirm('לשחזר '+what+' במכשיר '+who+'?')) return
+  if(!await amdPreflight('פעולת השחזור')){ amdLog('בוטל.','step'); return }
+  if(AMD_RST_TIMER){ clearInterval(AMD_RST_TIMER); AMD_RST_TIMER=null }
+  const prevAt=(CURRENT.config&&CURRENT.config.amrestore_result||{}).at||''
+  const nonce=String(Date.now())
+  const patch={ command:{ type:'restore_apps', nonce:nonce, packages:sel } }
+  const {error}=await db.rpc('merge_device_config',{p_id:CURRENT.id,p_patch:patch})
+  if(error){ amdLog('שליחה נכשלה: '+error.message,'err'); return }
+  CURRENT.config={...(CURRENT.config||{}), ...patch}
+  amdLog('נשלח שחזור ל-'+who+' ('+what+'). ממתין לתוצאה…','step')
+  let tries=0
+  AMD_RST_TIMER=setInterval(async function(){
+    tries++
+    const {data,error:e2}=await db.from('devices').select('config,last_seen,app_version').eq('id',CURRENT.id).single()
+    if(!e2 && data){
+      if(data.config) CURRENT.config=data.config
+      if(data.last_seen) CURRENT.last_seen=data.last_seen
+      const r=(data.config||{}).amrestore_result
+      if(r && r.at!==prevAt && String(r.nonce)===nonce){
+        clearInterval(AMD_RST_TIMER); AMD_RST_TIMER=null
+        amdLog('התקבל: הוחזרו '+(r.restored||0)+', בוטלה הסתרה ל-'+(r.unhidden||0)+', נכשלו '+(r.failed||0),
+               (r.failed||0)===0 ? 'ok' : 'err')
+        if(r.failures&&r.failures.length) amdLog('לא ניתן לשחזר: '+r.failures.join(', ')+' — אלה אפליקציות שהותקנו מחנות ונמחקו באמת.','step')
+        if(r.error) amdLog('סיבה טכנית: '+r.error,'err')
+        if(r.by==='service') amdLog('בוצע ע"י שירות הרקע — בלי לפתוח את האפליקציה.','ok')
+        else if(r.by==='app') amdLog('בוצע ע"י האפליקציה, כלומר רק אחרי שנפתחה במכשיר.','step')
+        amdLog('אם אפליקציה לא מופיעה במסך הבית, הפעל מחדש את המכשיר.','step')
+        return
+      }
+    }
+    if(tries>=20){
+      clearInterval(AMD_RST_TIMER); AMD_RST_TIMER=null
+      const m=minsSince((CURRENT||{}).last_seen)
+      if(m!==null && m>2) amdLog('אין תוצאה. המכשיר לא סנכרן כבר '+m+' דקות. השחזור ירוץ כשיתחבר.','err')
+      else amdLog('אין תוצאה עדיין. גרסה במכשיר: '+((CURRENT||{}).app_version||'לא ידוע')+'. נדרשת 3.9.160 ומעלה.','err')
+    }
+  },4000)
+}
+
 async function amdRestore(){
   if(!ADB){ amdLog('אין חיבור. לחץ "חבר מכשיר" קודם.','err'); return }
   const btn=$('amd-restore')
