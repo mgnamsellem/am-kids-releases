@@ -735,6 +735,42 @@ function filtered(){
     (d.device_hash||'').toLowerCase().includes(q))
 }
 function avatarColor(s){var g=[['#6C4BE0','#4A32A8'],['#1FA971','#3fd694'],['#EC2C8F','#ff6fb4'],['#E8A21C','#F6C453'],['#2C8BF0','#66B4FF'],['#8A38F0','#B579FF']];var h=0;s=String(s||'');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;var c=g[h%g.length];return'linear-gradient(140deg,'+c[0]+','+c[1]+')'}
+
+// ── מצב חיבור של מכשיר ─────────────────────────────────────────────────
+// ⚠️ למה זה קיים: פקודה שנשלחת למכשיר שלא מסונכרן פשוט יושבת בתור עד
+// שהמכשיר יחזור. בלי חיווי, זה נראה בדיוק כמו תקלה. הנקודה הצבעונית עונה
+// על "למה לא קרה כלום?" עוד לפני שלוחצים.
+const STALE_DAYS = 14
+function minsSince(t){ return t ? Math.round((Date.now()-new Date(t).getTime())/60000) : null }
+function liveState(t){
+  const m = minsSince(t)
+  if(m===null) return {k:'never', c:'#8b93a7', t:'מעולם לא סנכרן'}
+  if(m<5)      return {k:'live',  c:'#1FA971', t:'מחובר עכשיו'}
+  if(m<60)     return {k:'warm',  c:'#E8A21C', t:'סנכרן לפני '+m+' דקות'}
+  if(m<60*24)  return {k:'idle',  c:'#E8A21C', t:'סנכרן לפני '+Math.round(m/60)+' שעות'}
+  return {k:'stale', c:'#d94a5a', t:'לא סנכרן '+Math.round(m/1440)+' ימים'}
+}
+function liveDot(t){
+  const s=liveState(t)
+  return '<span title="'+esc(s.t)+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;'+
+         'background:'+s.c+';margin-left:6px;vertical-align:middle"></span>'
+}
+// רשומות כפולות: אותו מכשיר פיזי שנרשם מחדש (אחרי איפוס/הקצאה חוזרת) משאיר
+// רשומה ישנה שנראית זהה. שליחת פקודה אליה לא תגיע לשום מקום. מסמנים את
+// הישנות כדי שלא ייבחרו בטעות.
+function dupIds(){
+  const best={}, dups=new Set()
+  for(const d of DEVICES){
+    const k=(d.model||'?')+'|'+((d.customer_name||'').trim()||'?')
+    if(k==='?|?') continue
+    const cur=best[k]
+    if(!cur){ best[k]=d; continue }
+    const older = new Date(d.last_seen||0) < new Date(cur.last_seen||0) ? d : cur
+    const newer = older===d ? cur : d
+    dups.add(older.id); best[k]=newer
+  }
+  return dups
+}
 function render(){
   const list=filtered()
   const pages=Math.max(1,Math.ceil(list.length/PER))
@@ -742,14 +778,18 @@ function render(){
   const slice=list.slice((PAGE-1)*PER,PAGE*PER)
   const rows=$('rows')
   if(!slice.length){ rows.innerHTML='<tr><td colspan="11" class="empty">אין מכשירים</td></tr>'; $('pager').innerHTML=''; return }
+  const DUPS=dupIds()
   rows.innerHTML=slice.map(d=>{
     const cfg=d.config||{}, loc=cfg.last_location
     const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
       : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
     const locCell = (loc&&loc.lat!=null)?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" onclick="event.stopPropagation()">📍</a>`:'—'
-    return `<tr onclick="openDetail('${d.id}')">
+    const isDup=DUPS.has(d.id), isStale=(minsSince(d.last_seen)||0)>STALE_DAYS*1440
+    const dim=(isDup||isStale)?' style="opacity:.5"':''
+    const tag=isDup?'<span class="pill off" title="רשומה ישנה של אותו מכשיר. פקודות אליה לא יגיעו — בחר את השורה החדשה.">כפילות</span>':''
+    return `<tr onclick="openDetail('${d.id}')"${dim}>
       <td><b style="color:var(--accent)">${d.serial!=null?('#'+d.serial):'—'}</b></td>
-      <td><div class="cust"><span class="av" style="background:${avatarColor(d.customer_name||d.id)}">${(esc(d.customer_name)||'?').trim().charAt(0)}</span><span class="nm">${esc(d.customer_name)||'—'}</span></div></td>
+      <td><div class="cust"><span class="av" style="background:${avatarColor(d.customer_name||d.id)}">${(esc(d.customer_name)||'?').trim().charAt(0)}</span><span class="nm">${esc(d.customer_name)||'—'} ${tag}</span></div></td>
       <td>${esc(d.customer_phone)||'—'}</td>
       <td class="mhide">${d.first_seen?new Date(d.first_seen).toLocaleDateString('he-IL'):'—'}</td>
       <td>${esc(d.model)||'—'}</td>
@@ -757,7 +797,7 @@ function render(){
       <td class="mhide">${esc(d.app_version)||'—'}</td>
       <td>${locCell}</td>
       <td class="mhide" style="color:var(--muted);font-size:12px">${esc((d.config||{}).store_code)||'—'}</td>
-      <td>${fmt(d.last_seen)}</td>
+      <td>${liveDot(d.last_seen)}${fmt(d.last_seen)}</td>
       <td>${st}</td>
     </tr>`
   }).join('')
@@ -1333,9 +1373,33 @@ function amdLiveRender(){
 // שולח למכשיר בקשה לדווח מה מותקן עליו, ומרענן את הכרטיס כשהדיווח מגיע.
 // שומר גם את חותמת הזמן של הדיווח הקודם, כדי לזהות דיווח **חדש** ולא להציג
 // שוב רשימה ישנה כאילו היא תשובה טרייה.
+// ── בדיקה מקדימה לפני שליחת פקודה ───────────────────────────────────────
+// ⚠️ זה התיקון החשוב ביותר בחוויה: קודם היינו שולחים פקודה בעיוורון, מחכים
+// דקה, ורק אז מגלים שהמכשיר בכלל לא מחובר. עכשיו בודקים את המצב **לפני**
+// הלחיצה, ואם המכשיר לא מדבר עם השרת אומרים את זה מראש ונותנים לבחור.
+// מחזיר true אם ממשיכים.
+async function amdPreflight(what){
+  if(!CURRENT) return false
+  try{
+    const {data}=await db.from('devices').select('last_seen,app_version').eq('id',CURRENT.id).single()
+    if(data){
+      if(data.last_seen) CURRENT.last_seen=data.last_seen
+      if(data.app_version) CURRENT.app_version=data.app_version
+    }
+  }catch(e){}
+  const m=minsSince(CURRENT.last_seen)
+  if(m===null || m<=2) return true
+  const when = CURRENT.last_seen ? new Date(CURRENT.last_seen).toLocaleString('he-IL') : 'מעולם'
+  const human = m<60 ? (m+' דקות') : (m<1440 ? (Math.round(m/60)+' שעות') : (Math.round(m/1440)+' ימים'))
+  amdLog('⚠️ המכשיר לא מסונכרן כבר '+human+' (אחרון: '+when+').','err')
+  return confirm('המכשיר לא מדבר עם השרת כבר '+human+'.\n\nסנכרון אחרון: '+when+
+    '\n\n'+what+' תישמר בתור ותרוץ ברגע שהמכשיר יתחבר, לא עכשיו.\n\nלשלוח בכל זאת?')
+}
+
 var AMD_SCAN_TIMER=null
 async function amdScan(){
   if(!CURRENT){ amdLog('לא נבחר מכשיר. פתח את כרטיס הלקוח בעמוד "לקוחות" ואז חזור לכאן.','err'); return }
+  if(!await amdPreflight('הבקשה')){ amdLog('בוטל.','step'); return }
   // לחיצה חוזרת מבטלת את הסבב הקודם. בלי זה כל לחיצה פתחה טיימר נוסף,
   // וכולם הציפו את היומן באותה הודעה שוב ושוב.
   if(AMD_SCAN_TIMER){ clearInterval(AMD_SCAN_TIMER); AMD_SCAN_TIMER=null }
@@ -1437,6 +1501,7 @@ async function amdRemote(){
   const sel=amdSelected(); if(!sel.length){ amdLog('לא נבחרו חבילות','err'); return }
   const who=CURRENT.customer_name||CURRENT.model||CURRENT.id
   if(!confirm('לשלוח מחיקה מרחוק של '+sel.length+' אפליקציות?\n\nמכשיר: '+who)) return
+  if(!await amdPreflight('המחיקה')){ amdLog('בוטל.','step'); return }
   if(AMD_DEL_TIMER){ clearInterval(AMD_DEL_TIMER); AMD_DEL_TIMER=null }
   const prevAt=(CURRENT.config&&CURRENT.config.amdelete_result||{}).at||''
   const nonce=String(Date.now())
@@ -1458,6 +1523,10 @@ async function amdRemote(){
         const line='התקבל: הוסרו '+(r.removed||0)+', נוטרלו '+(r.hidden||0)+
                    ', לא היו מותקנות '+(r.absent||0)+', נכשלו '+(r.failed||0)
         amdLog(line, (r.failed||0)===0 ? 'ok' : 'err')
+        // מי ביצע: שירות הרקע (מיידי, גם כשהאפליקציה סגורה) או האפליקציה
+        // (רק כשמישהו פתח אותה). זה מבדיל בין "עובד" ל"עבד במקרה".
+        if(r.by==='service') amdLog('בוצע ע"י שירות הרקע — בלי לפתוח את האפליקציה.','ok')
+        else if(r.by==='app') amdLog('בוצע ע"י האפליקציה, כלומר רק אחרי שנפתחה במכשיר. שירות הרקע לא רץ שם.','step')
         if(r.failures&&r.failures.length) amdLog('נכשלו: '+r.failures.join(', '),'err')
         if(r.error) amdLog('סיבה טכנית: '+r.error,'err')
         if((r.absent||0)>0) amdLog('שים לב: '+(r.absent)+' חבילות פשוט לא קיימות בדגם הזה. זו לא תקלה. לחץ "מה מותקן במכשיר?" כדי לבחור מהרשימה האמיתית.','step')
