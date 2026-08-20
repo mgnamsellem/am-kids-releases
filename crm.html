@@ -475,18 +475,45 @@
       <div id="store-form" class="grpcard hide">
         <h3 id="sf-title">חנות חדשה</h3>
         <div class="grid">
-          <div class="f"><label>שם החנות *</label><input id="sf-name"></div>
+          <div class="f"><label>שם *</label><input id="sf-name"></div>
+          <div class="f"><label>סוג</label>
+            <select id="sf-role" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text)">
+              <option value="store">חנות</option>
+              <option value="reseller">מפיץ</option>
+            </select>
+          </div>
           <div class="f"><label>קוד חנות (4 ספרות) *</label>
             <div style="display:flex;gap:8px">
               <input id="sf-code" maxlength="4" inputmode="numeric" style="flex:1">
               <button class="b-ghost" style="flex:0 0 auto" onclick="genStoreCode()">🎲 אקראי</button>
             </div>
           </div>
+          <div class="f"><label>שייך למפיץ</label>
+            <select id="sf-parent" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text)">
+              <option value="">— תחת בעל המערכת —</option>
+            </select>
+          </div>
+          <div class="f"><label>אימייל להתחברות</label><input id="sf-email" type="email" autocomplete="off"></div>
+          <div class="f"><label id="sf-pass-label">סיסמה (8 תווים לפחות)</label><input id="sf-pass" type="text" autocomplete="new-password"></div>
           <div class="f"><label>טלפון</label><input id="sf-phone"></div>
           <div class="f"><label>הערות</label><input id="sf-notes"></div>
         </div>
+        <div class="f" style="margin-top:6px">
+          <label>הרשאות</label>
+          <div id="sf-perms" style="display:flex;flex-wrap:wrap;gap:14px;padding-top:4px">
+            <label style="font-weight:400"><input type="checkbox" id="perm-commands" checked> שליחת פקודות</label>
+            <label style="font-weight:400"><input type="checkbox" id="perm-location" checked> צפייה במיקום</label>
+            <label style="font-weight:400"><input type="checkbox" id="perm-subscription" checked> ניהול מנוי</label>
+            <label style="font-weight:400"><input type="checkbox" id="perm-provision"> הקצאת מכשיר</label>
+          </div>
+        </div>
+        <p id="sf-hint" style="color:var(--muted);font-size:12px;margin:8px 0 0">
+          אימייל וסיסמה נדרשים רק כדי שהחנות תוכל להתחבר לדשבורד ולראות את הלקוחות
+          שלה. אפשר להשאיר ריק לחנות שמשמשת רק לשיוך לקוחות בלי התחברות משלה.
+        </p>
         <div class="savebar">
           <button class="b-save" onclick="saveStore()">💾 שמירה</button>
+          <button id="sf-reset-pass" class="b-ghost hide" onclick="resetStorePassword()">🔑 אפס סיסמה</button>
           <button class="b-cancel" onclick="document.getElementById('store-form').classList.add('hide')">ביטול</button>
         </div>
       </div>
@@ -708,6 +735,8 @@ async function forgotPass(){
 }
 async function logout(){ await db.auth.signOut(); location.reload() }
 
+// המפעיל המחובר (owner / reseller / store). קובע מה מוצג ומה מותר.
+let CURRENT_OP = { id:'', role:'', name:'', code:'' }
 async function enterApp(){
   const {data:{user}} = await db.auth.getUser()
   if(!user) return
@@ -715,12 +744,40 @@ async function enterApp(){
   // מפעיל לפי login_email
   let opName = user.email, opCode = ''
   try{
-    const {data:op} = await db.from('operators').select('name,id,role').eq('login_email',user.email).maybeSingle()
-    if(op){ opName=op.name||user.email; opCode=(op.id||'').slice(0,4) }
+    const {data:op} = await db.from('operators').select('name,id,role,code').eq('login_email',user.email).maybeSingle()
+    if(op){
+      opName=op.name||user.email; opCode=(op.id||'').slice(0,4)
+      CURRENT_OP = { id:op.id||'', role:op.role||'', name:op.name||user.email, code:op.code||'' }
+    }
   }catch(_){}
   $('op-name').textContent=opName; $('op-code').textContent=opCode?('#'+opCode):''
+  applyRoleGating()
   loadStores()
   loadDevices()
+}
+
+// ניהול חנויות והקצאת מכשירים שמורים לבעל המערכת בלבד. מפיץ/חנות רואים רק
+// את הלקוחות שלהם (מסונן בשרת ע"י RLS) בלי הכלים האלה.
+function applyRoleGating(){
+  const owner = CURRENT_OP.role === 'owner'
+  const ns = $('nav-stores'), np = $('nav-provision')
+  if(ns) ns.style.display = owner ? '' : 'none'
+  if(np) np.style.display = owner ? '' : 'none'
+}
+
+// קורא ל-Edge Function עם טוקן ההתחברות של המפעיל (owner בלבד יעבור בשרת).
+const FUNCTIONS_BASE = SUPABASE_URL + '/functions/v1'
+async function callFn(name, body){
+  const {data:{session}} = await db.auth.getSession()
+  const token = session ? session.access_token : SUPABASE_ANON_KEY
+  const res = await fetch(FUNCTIONS_BASE + '/' + name, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token, 'apikey':SUPABASE_ANON_KEY },
+    body: JSON.stringify(body)
+  })
+  let j = {}; try{ j = await res.json() }catch(_){}
+  if(!res.ok) throw new Error(j.error || ('שגיאת שרת '+res.status))
+  return j
 }
 
 // ── DATA ──
@@ -842,18 +899,26 @@ let EDIT_STORE = null
 function storeByCode(code){ return code ? STORES.find(s=>s.code===code) : null }
 async function loadStores(){
   if(!db) return
-  const {data,error}=await db.from('operators').select('id,name,code,config,role')
+  const {data,error}=await db.from('operators').select('id,name,code,config,role,login_email,parent_id')
   STORES = error ? [] : (data||[])
   renderStores()
 }
 function renderStores(){
   const rows=$('srows')
   if(!STORES.length){ rows.innerHTML='<tr><td colspan="5" class="empty">אין חנויות עדיין — לחץ "הוסף חנות". (אם קופצת שגיאה — ודא שהרצת את מדיניות ה-SQL של operators)</td></tr>'; return }
+  const nameById={}; STORES.forEach(s=>nameById[s.id]=s.name)
   rows.innerHTML=STORES.map(s=>{
     const cfg=s.config||{}
     const count=DEVICES.filter(d=>(d.config||{}).store_code===s.code).length
+    const typePill = s.role==='owner' ? '<span class="pill active">בעלים</span>'
+      : s.role==='reseller' ? '<span class="pill off">מפיץ</span>'
+      : '<span class="pill off">חנות</span>'
+    const login = s.login_email
+      ? '<span title="'+esc(s.login_email)+'" style="color:var(--muted)">🔑 '+esc(s.login_email)+'</span>'
+      : '<span style="color:var(--muted)">— בלי התחברות —</span>'
+    const parent = s.parent_id && nameById[s.parent_id] ? ' · תחת '+esc(nameById[s.parent_id]) : ''
     return `<tr>
-      <td>${esc(s.name)||'—'}</td>
+      <td>${esc(s.name)||'—'} ${typePill}<div style="font-size:11px">${login}${parent}</div></td>
       <td><b style="color:var(--accent)">${esc(s.code)||'—'}</b></td>
       <td class="mhide">${esc(cfg.phone)||'—'}</td>
       <td>${count}</td>
@@ -861,18 +926,55 @@ function renderStores(){
     </tr>`
   }).join('')
 }
+function fillParents(sel){
+  const el=$('sf-parent')
+  const resellers=STORES.filter(s=>s.role==='reseller' && (!EDIT_STORE||s.id!==EDIT_STORE.id))
+  el.innerHTML='<option value="">— תחת בעל המערכת —</option>'+
+    resellers.map(r=>`<option value="${r.id}">${esc(r.name)||r.id.slice(0,6)}</option>`).join('')
+  el.value=sel||''
+}
+function setPerms(p){
+  p=p||{}
+  $('perm-commands').checked = p.commands!==false
+  $('perm-location').checked = p.location!==false
+  $('perm-subscription').checked = p.subscription!==false
+  $('perm-provision').checked = p.provision===true
+}
+function getPerms(){
+  return {
+    commands: $('perm-commands').checked,
+    location: $('perm-location').checked,
+    subscription: $('perm-subscription').checked,
+    provision: $('perm-provision').checked,
+  }
+}
 function newStore(){
   EDIT_STORE=null
   $('sf-title').textContent='חנות חדשה'
   $('sf-name').value=''; $('sf-code').value=''; $('sf-phone').value=''; $('sf-notes').value=''
+  $('sf-role').value='store'; $('sf-email').value=''; $('sf-email').disabled=false; $('sf-pass').value=''
+  $('sf-pass-label').textContent='סיסמה (8 תווים לפחות)'
+  setPerms({commands:true, location:true, subscription:true, provision:false})
+  fillParents('')
+  $('sf-reset-pass').classList.add('hide')
   $('store-form').classList.remove('hide')
 }
 function editStore(id){
   const s=STORES.find(x=>x.id===id); if(!s) return
   EDIT_STORE=s; const cfg=s.config||{}
-  $('sf-title').textContent='עריכת חנות'
+  $('sf-title').textContent='עריכת '+(s.role==='reseller'?'מפיץ':'חנות')
   $('sf-name').value=s.name||''; $('sf-code').value=s.code||''
   $('sf-phone').value=cfg.phone||''; $('sf-notes').value=cfg.notes||''
+  $('sf-role').value = s.role==='reseller'?'reseller':'store'
+  $('sf-email').value=s.login_email||''
+  // אימייל ההתחברות מזהה את משתמש ה-Auth ולכן לא ניתן לשינוי בעריכה.
+  $('sf-email').disabled = !!s.login_email
+  $('sf-pass').value=''
+  $('sf-pass-label').textContent='סיסמה חדשה (השאר ריק לשמירה)'
+  setPerms(cfg.permissions||{})
+  fillParents(s.parent_id||'')
+  // כפתור איפוס סיסמה מוצג רק אם לחנות כבר יש התחברות.
+  $('sf-reset-pass').classList.toggle('hide', !cfg.auth_user_id)
   $('store-form').classList.remove('hide')
 }
 function genStoreCode(){
@@ -884,14 +986,43 @@ async function saveStore(){
   if(!name || !/^\d{4}$/.test(code)){ toast('נא למלא שם וקוד בן 4 ספרות'); return }
   const other=storeByCode(code)
   if(other && (!EDIT_STORE || other.id!==EDIT_STORE.id)){ toast('הקוד '+code+' כבר בשימוש'); return }
-  const cfg={...((EDIT_STORE&&EDIT_STORE.config)||{}), phone:$('sf-phone').value.trim(), notes:$('sf-notes').value.trim()}
-  const row={name, code, config:cfg, role:'store'}
+  const role = $('sf-role').value==='reseller'?'reseller':'store'
+  const parent_id = $('sf-parent').value || null
+  const email = $('sf-email').value.trim().toLowerCase()
+  const pass = $('sf-pass').value
+  const perms = getPerms()
+  const cfg={...((EDIT_STORE&&EDIT_STORE.config)||{}), phone:$('sf-phone').value.trim(), notes:$('sf-notes').value.trim(), permissions:perms}
+
+  // חנות חדשה עם התחברות → דרך ה-Edge Function (יוצרת משתמש Auth). ⚠️ דורש
+  // שהראנבוק store_multitenant_runbook.sql כבר רץ, אחרת לחנות תהיה גישה לכל.
+  if(!EDIT_STORE && email){
+    if(pass.length<8){ toast('סיסמה חייבת 8 תווים לפחות'); return }
+    try{
+      await callFn('admin-operator', {action:'create', email, password:pass, name, role, parent_id, code, config:{phone:cfg.phone, notes:cfg.notes}, permissions:perms})
+      toast('נוצרה חנות עם התחברות ✓'); $('store-form').classList.add('hide'); await loadStores()
+    }catch(e){ toast('שגיאה: '+e.message) }
+    return
+  }
+  // חנות חדשה בלי התחברות, או עריכת מטא-דאטה → כתיבה ישירה ל-operators.
+  const row={name, code, role, parent_id, config:cfg}
   const q = EDIT_STORE
     ? db.from('operators').update(row).eq('id',EDIT_STORE.id)
     : db.from('operators').insert(row)
   const {error}=await q
   if(error){ toast('שגיאה: '+error.message); return }
+  // עריכה עם סיסמה חדשה שהוקלדה → איפוס דרך ה-Edge Function.
+  if(EDIT_STORE && pass){
+    if(pass.length<8){ toast('נשמר, אך הסיסמה קצרה מ-8 ולא עודכנה') }
+    else { try{ await callFn('admin-operator', {action:'set_password', operator_id:EDIT_STORE.id, password:pass}) }catch(e){ toast('נשמר, אך איפוס סיסמה נכשל: '+e.message) } }
+  }
   toast('נשמר ✓'); $('store-form').classList.add('hide'); await loadStores()
+}
+async function resetStorePassword(){
+  if(!EDIT_STORE) return
+  const pass=$('sf-pass').value
+  if(pass.length<8){ toast('הכנס סיסמה חדשה (8 תווים לפחות) בשדה הסיסמה'); return }
+  try{ await callFn('admin-operator', {action:'set_password', operator_id:EDIT_STORE.id, password:pass}); toast('סיסמה עודכנה ✓') }
+  catch(e){ toast('שגיאה: '+e.message) }
 }
 
 // ── DEVICE MANAGEMENT (quick actions) ──
