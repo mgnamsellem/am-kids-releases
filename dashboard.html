@@ -177,7 +177,9 @@
   .danger-zone{box-shadow:0 20px 40px -34px var(--shadow),inset 0 0 0 1.5px color-mix(in srgb,var(--block) 45%,transparent)}
   .danger-zone h3{color:var(--block)} .danger-zone h3::before{background:var(--block)}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--ok),#3fd694);
-    color:#04220f;padding:13px 24px;border-radius:13px;font-weight:800;z-index:50;opacity:0;transition:.3s;box-shadow:0 16px 30px -12px var(--ok)}
+    color:#04220f;padding:13px 24px;border-radius:13px;font-weight:800;z-index:50;opacity:0;transition:.3s;box-shadow:0 16px 30px -12px var(--ok);
+    max-width:min(92vw,520px);text-align:center;line-height:1.4}
+  .toast.err{background:linear-gradient(135deg,var(--block),#ff7d92);color:#fff;box-shadow:0 16px 30px -12px var(--block)}
   .toast.show{opacity:1}
 
   /* ── מובייל ── */
@@ -717,7 +719,7 @@ const fmt = t => { if(!t) return '—'; const d=new Date(t), s=(Date.now()-d)/10
   if(s<60)return 'עכשיו'; if(s<3600)return Math.floor(s/60)+' דק׳';
   if(s<86400)return Math.floor(s/3600)+' ש׳'; return d.toLocaleDateString('he-IL') }
 const fdate = t => t ? new Date(t).toLocaleDateString('he-IL')+' '+new Date(t).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}) : '—'
-function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200) }
+function toast(m,kind){ const t=$('toast'); t.textContent=m; t.classList.toggle('err',kind==='err'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), kind==='err'?4500:2200) }
 function soon(){ toast('בקרוב 🚧') }
 
 // ── AUTH ──
@@ -772,12 +774,20 @@ const FUNCTIONS_BASE = SUPABASE_URL + '/functions/v1'
 async function callFn(name, body){
   const {data:{session}} = await db.auth.getSession()
   const token = session ? session.access_token : SUPABASE_ANON_KEY
-  const res = await fetch(FUNCTIONS_BASE + '/' + name, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token, 'apikey':SUPABASE_ANON_KEY },
-    body: JSON.stringify(body)
-  })
+  let res
+  try{
+    res = await fetch(FUNCTIONS_BASE + '/' + name, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token, 'apikey':SUPABASE_ANON_KEY },
+      body: JSON.stringify(body)
+    })
+  }catch(e){
+    // fetch נכשל לפני שהתקבלה תשובה — כמעט תמיד הפונקציה לא פרוסה (preflight
+    // CORS נכשל). מחליפים את "Failed to fetch" הגולמי בהסבר ברור ופעולה.
+    throw new Error('הפונקציה '+name+' לא פרוסה בשרת. הרץ פעם אחת: supabase functions deploy '+name)
+  }
   let j = {}; try{ j = await res.json() }catch(_){}
+  if(res.status===404) throw new Error('הפונקציה "'+name+'" לא נמצאה בשרת (404). צריך לפרוס אותה: supabase functions deploy '+name)
   if(!res.ok) throw new Error(j.error || ('שגיאת שרת '+res.status))
   return j
 }
@@ -995,14 +1005,20 @@ async function saveStore(){
   const perms = getPerms()
   const cfg={...((EDIT_STORE&&EDIT_STORE.config)||{}), phone:$('sf-phone').value.trim(), notes:$('sf-notes').value.trim(), permissions:perms}
 
+  // אימייל וסיסמה חייבים לבוא יחד כדי ליצור התחברות. אחד בלי השני = טעות
+  // נפוצה (למשל סיסמה בלי אימייל, שהיתה נשמרת בשקט בלי להועיל).
+  if(!EDIT_STORE && ((!!email) !== (pass.length>0))){
+    toast('להתחברות צריך גם אימייל וגם סיסמה. השאר את שניהם ריקים לחנות בלי התחברות.','err'); return
+  }
+
   // חנות חדשה עם התחברות → דרך ה-Edge Function (יוצרת משתמש Auth). ⚠️ דורש
   // שהראנבוק store_multitenant_runbook.sql כבר רץ, אחרת לחנות תהיה גישה לכל.
   if(!EDIT_STORE && email){
-    if(pass.length<8){ toast('סיסמה חייבת 8 תווים לפחות'); return }
+    if(pass.length<8){ toast('סיסמה חייבת 8 תווים לפחות','err'); return }
     try{
       await callFn('admin-operator', {action:'create', email, password:pass, name, role, parent_id, code, config:{phone:cfg.phone, notes:cfg.notes}, permissions:perms})
       toast('נוצרה חנות עם התחברות ✓'); $('store-form').classList.add('hide'); await loadStores()
-    }catch(e){ toast('שגיאה: '+e.message) }
+    }catch(e){ toast('שגיאה: '+e.message,'err') }
     return
   }
   // חנות חדשה בלי התחברות, או עריכת מטא-דאטה → כתיבה ישירה ל-operators.
@@ -1011,11 +1027,11 @@ async function saveStore(){
     ? db.from('operators').update(row).eq('id',EDIT_STORE.id)
     : db.from('operators').insert(row)
   const {error}=await q
-  if(error){ toast('שגיאה: '+error.message); return }
+  if(error){ toast('שגיאה: '+error.message,'err'); return }
   // עריכה עם סיסמה חדשה שהוקלדה → איפוס דרך ה-Edge Function.
   if(EDIT_STORE && pass){
     if(pass.length<8){ toast('נשמר, אך הסיסמה קצרה מ-8 ולא עודכנה') }
-    else { try{ await callFn('admin-operator', {action:'set_password', operator_id:EDIT_STORE.id, password:pass}) }catch(e){ toast('נשמר, אך איפוס סיסמה נכשל: '+e.message) } }
+    else { try{ await callFn('admin-operator', {action:'set_password', operator_id:EDIT_STORE.id, password:pass}) }catch(e){ toast('נשמר, אך איפוס סיסמה נכשל: '+e.message,'err') } }
   }
   toast('נשמר ✓'); $('store-form').classList.add('hide'); await loadStores()
 }
@@ -1024,7 +1040,7 @@ async function resetStorePassword(){
   const pass=$('sf-pass').value
   if(pass.length<8){ toast('הכנס סיסמה חדשה (8 תווים לפחות) בשדה הסיסמה'); return }
   try{ await callFn('admin-operator', {action:'set_password', operator_id:EDIT_STORE.id, password:pass}); toast('סיסמה עודכנה ✓') }
-  catch(e){ toast('שגיאה: '+e.message) }
+  catch(e){ toast('שגיאה: '+e.message,'err') }
 }
 
 // ── DEVICE MANAGEMENT (quick actions) ──
@@ -1065,7 +1081,7 @@ function renderDevices(){
 }
 async function qStatus(id,status){
   const {error}=await db.from('devices').update({status}).eq('id',id)
-  if(error){ toast('שגיאה: '+error.message); return }
+  if(error){ toast('שגיאה: '+error.message,'err'); return }
   toast('עודכן ✓'); await loadDevices()
 }
 async function qSub(id,on){
@@ -1074,7 +1090,7 @@ async function qSub(id,on){
     status:on?'active':'expired',price_agorot:1000,
     started_at:on?now.toISOString():null,expires_at:on?exp.toISOString():null,
     updated_at:now.toISOString()},{onConflict:'device_id,feature'})
-  if(error){ toast('שגיאה: '+error.message); return }
+  if(error){ toast('שגיאה: '+error.message,'err'); return }
   toast('עודכן ✓'); await loadDevices()
 }
 function openDetail(id){
@@ -1151,7 +1167,7 @@ async function resetIdentity(){
     +'הרשומה הזו תתרוקן — תוכל למחוק אותה אחר כך.')) return
   const cfg={...(CURRENT.config||{}), reset_id:String(Date.now())}
   const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
-  if(error){ toast('שגיאה: '+error.message); return }
+  if(error){ toast('שגיאה: '+error.message,'err'); return }
   toast('פקודת איפוס נשלחה — המכשירים יתפצלו תוך דקה ✓')
   showPage('customers')
 }
@@ -1169,7 +1185,7 @@ async function sendCommand(type){
   if(type==='wipe' && !confirm('אזהרה אחרונה: איפוס להגדרות יצרן מוחק את כל תוכן המכשיר ואינו הפיך. להמשיך?')) return
   const cfg={...(CURRENT.config||{}), command:{type, nonce:String(Date.now())}}
   const {error}=await db.from('devices').update({config:cfg}).eq('id',CURRENT.id)
-  if(error){ toast('שגיאה: '+error.message); return }
+  if(error){ toast('שגיאה: '+error.message,'err'); return }
   CURRENT.config=cfg
   toast('פקודה נשלחה — תתבצע תוך דקה ✓')
 }
@@ -1220,7 +1236,7 @@ async function saveDevice(){
   const upd={ customer_name:$('d-name').value.trim(), customer_phone:$('d-phone').value.trim(),
     status:$('d-status').value }
   const {error}=await db.from('devices').update(upd).eq('id',d.id)
-  if(error){ toast('שגיאה: '+error.message); return }
+  if(error){ toast('שגיאה: '+error.message,'err'); return }
   // ה-config נכתב דרך מיזוג אטומי בצד השרת (config = config || patch), כדי לא
   // לדרוס דגלים שמפעיל אחר, או המכשיר עצמו, שינו באותו רגע. אם ה-RPC לא
   // הותקן (ראו server/config_merge_rpc.sql) נופלים חזרה לכתיבה המלאה הישנה.
