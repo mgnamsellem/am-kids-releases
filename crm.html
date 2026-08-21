@@ -250,6 +250,7 @@
       <a id="nav-amdelete" onclick="showPage('amdelete')">🧹 AM Delete</a>
       <a id="nav-stores" onclick="showPage('stores')">🏪 חנויות</a>
       <a id="nav-credits" onclick="showPage('credits')">💳 קרדיטים</a>
+      <a id="nav-support" onclick="showPage('support')">💬 תמיכה</a>
       <a class="soon" onclick="soon()">🔗 חיבורים בקוד <small>(בקרוב)</small></a>
       <a class="soon" onclick="soon()">📎 קישורים <small>(בקרוב)</small></a>
     </nav>
@@ -552,6 +553,23 @@
           <thead><tr><th>חנות</th><th>קוד</th><th>קנתה</th><th>בשימוש</th><th>נשאר</th><th>פעולה</th></tr></thead>
           <tbody id="crows"><tr><td colspan="6" class="empty">טוען…</td></tr></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Support (תמיכה) -->
+    <section class="page hide" id="page-support">
+      <h2>💬 תמיכה</h2>
+      <p class="cardnote" id="sup-intro"></p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch">
+        <div id="sup-inbox" class="grpcard hide" style="flex:0 0 300px;max-height:68vh;overflow:auto;padding:8px"></div>
+        <div class="grpcard" style="flex:1;min-width:280px;display:flex;flex-direction:column;height:68vh;padding:12px">
+          <div id="sup-thread" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px"></div>
+          <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--line);margin-top:8px">
+            <input id="sup-input" placeholder="כתוב הודעה…" onkeydown="if(event.key==='Enter')sendSupport()"
+              style="flex:1;background:var(--bg);border:0;box-shadow:inset 0 0 0 1px var(--line);color:var(--txt);padding:11px 14px;border-radius:12px;font-family:var(--font);font-weight:600">
+            <button class="b-save" onclick="sendSupport()">שלח</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -946,7 +964,8 @@ function render(){
 
 // ── DETAIL ──
 function showPage(p){
-  ;['customers','devices','provision','amdelete','stores','credits','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  ;['customers','devices','provision','amdelete','stores','credits','support','detail'].forEach(x=> $('page-'+x).classList.toggle('hide',x!==p))
+  if(p!=='support' && _supPoll){ clearInterval(_supPoll); _supPoll=null }
   document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'))
   if(p==='customers') $('nav-customers').classList.add('active')
   if(p==='devices'){ $('nav-devices').classList.add('active'); renderDevices() }
@@ -956,6 +975,8 @@ function showPage(p){
     try{ amdLiveRender() }catch(e){} }
   if(p==='stores'){ $('nav-stores').classList.add('active'); renderStores() }
   if(p==='credits'){ $('nav-credits').classList.add('active'); renderCredits() }
+  if(p==='support'){ $('nav-support').classList.add('active'); loadSupport();
+    if(!_supPoll) _supPoll=setInterval(loadSupport,5000) }
   if(p==='detail') $('nav-customers').classList.add('active')
 }
 
@@ -1044,6 +1065,76 @@ async function topUp(id){
   if(error){ toast('שגיאה: '+error.message,'err'); return }
   toast('עודכן ל-'+cfg.credits+' קרדיטים ✓')
   await loadStores(); renderCredits()
+}
+// ── SUPPORT (תמיכה) ──
+let SUP_MSGS = []
+let SUP_SEL = ''
+let _supPoll = null
+function supName(opId){ const s=STORES.find(x=>x.id===opId); return s ? (s.name||'חנות') : 'חנות' }
+async function loadSupport(){
+  if(!db) return
+  const {data,error} = await db.from('support_messages').select('*').order('created_at',{ascending:true})
+  if(error){ $('sup-thread').innerHTML='<div class="empty">'+esc(error.message)+'</div>'; return }
+  SUP_MSGS = data||[]
+  if(CURRENT_OP.role!=='owner') SUP_SEL = CURRENT_OP.id
+  renderSupport()
+}
+function renderSupport(){
+  const owner = CURRENT_OP.role==='owner'
+  $('sup-intro').textContent = owner
+    ? 'פניות תמיכה מהחנויות. בחר שיחה מימין וענה. ברירת מחדל מסמנת כנקרא.'
+    : 'צריך עזרה? כתוב לנו כאן וצוות AM Kids יחזור אליך.'
+  const inbox=$('sup-inbox')
+  if(owner){
+    inbox.classList.remove('hide')
+    const byOp={}
+    SUP_MSGS.forEach(m=>{ (byOp[m.operator_id]=byOp[m.operator_id]||[]).push(m) })
+    const ids=Object.keys(byOp).sort((a,b)=>byOp[b][byOp[b].length-1].created_at.localeCompare(byOp[a][byOp[a].length-1].created_at))
+    inbox.innerHTML = ids.length ? ids.map(id=>{
+      const msgs=byOp[id], last=msgs[msgs.length-1]
+      const unread=msgs.filter(m=>!m.from_owner && !m.read_by_owner).length
+      const sel = id===SUP_SEL ? 'background:var(--pri-wash)' : ''
+      return `<div onclick="selectSupport('${id}')" style="padding:10px;border-radius:10px;cursor:pointer;${sel}">
+        <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(supName(id))}</b>${unread?'<span class="pill blocked">'+unread+'</span>':''}</div>
+        <div style="color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(last.body)}</div>
+      </div>`
+    }).join('') : '<div class="empty">אין פניות עדיין</div>'
+  } else { inbox.classList.add('hide') }
+  renderSupThread()
+}
+function selectSupport(id){ SUP_SEL=id; renderSupport(); markSupportRead() }
+function renderSupThread(){
+  const t=$('sup-thread'); if(!t) return
+  const owner = CURRENT_OP.role==='owner'
+  if(owner && !SUP_SEL){ t.innerHTML='<div class="empty">בחר שיחה מימין</div>'; return }
+  const msgs=SUP_MSGS.filter(m=>m.operator_id===SUP_SEL)
+  t.innerHTML = msgs.length ? msgs.map(m=>{
+    const mine = owner ? m.from_owner : !m.from_owner
+    const bg = mine ? 'var(--pri)' : 'var(--card2)', col = mine ? '#fff' : 'var(--txt)'
+    return `<div style="align-self:${mine?'flex-start':'flex-end'};max-width:78%;background:${bg};color:${col};padding:9px 13px;border-radius:13px;line-height:1.4">${esc(m.body)}</div>`
+  }).join('') : '<div class="empty">אין הודעות עדיין. כתוב את הראשונה.</div>'
+  t.scrollTop = t.scrollHeight
+  markSupportRead()
+}
+async function sendSupport(){
+  const inp=$('sup-input'), body=(inp.value||'').trim(); if(!body) return
+  const owner = CURRENT_OP.role==='owner'
+  if(owner && !SUP_SEL){ toast('בחר שיחה קודם','err'); return }
+  const row={ operator_id: owner?SUP_SEL:CURRENT_OP.id, from_owner:owner, body }
+  inp.value=''
+  const {error}=await db.from('support_messages').insert(row)
+  if(error){ toast('שגיאה: '+error.message,'err'); inp.value=body; return }
+  await loadSupport()
+}
+async function markSupportRead(){
+  if(!SUP_SEL) return
+  const owner = CURRENT_OP.role==='owner'
+  const field = owner ? 'read_by_owner' : 'read_by_store'
+  const unread = SUP_MSGS.filter(m=>m.operator_id===SUP_SEL &&
+    (owner ? (!m.from_owner && !m.read_by_owner) : (m.from_owner && !m.read_by_store)))
+  if(!unread.length) return
+  const patch={}; patch[field]=true
+  try{ await db.from('support_messages').update(patch).in('id',unread.map(m=>m.id)) }catch(_){}
 }
 function fillParents(sel){
   const el=$('sf-parent')
