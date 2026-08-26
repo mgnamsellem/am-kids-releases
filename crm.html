@@ -287,6 +287,7 @@
       <div class="toolbar">
         <input id="search" placeholder="חיפוש: שם / טלפון / דגם / מזהה…" oninput="render()">
         <button class="b-ghost" onclick="loadDevices()">רענן</button>
+        <button class="b-ghost" onclick="cleanDuplicates()" title="מסיר בבת אחת את כל הרשומות המסומנות ככפילות (רשומות ישנות של אותו מכשיר)">🧹 נקה כפילות</button>
       </div>
       <div class="tablewrap">
         <table>
@@ -1443,6 +1444,30 @@ async function deleteDevice(){
   }
   toast('הוסר מהרשימה ✓')
   await loadDevices(); showPage('customers')
+}
+
+// ניקוי מרוכז: מסיר בבת אחת את כל הרשומות המסומנות ככפילות (רשומות ישנות של
+// אותו מכשיר פיזי). לא נוגע במכשירים עצמם. מכשיר פעיל שעדיין מחובר עלול
+// להירשם מחדש — לכן מדווחים כמה נמחקו בפועל.
+async function cleanDuplicates(){
+  const dups=[...dupIds()]
+  if(!dups.length){ toast('אין רשומות כפולות לניקוי ✓'); return }
+  if(!confirm('לנקות '+dups.length+' רשומות כפולות?\n\n'
+    +'מסיר רק את הרשומות הישנות של מכשירים שנרשמו כמה פעמים — לא נוגע במכשיר\n'
+    +'עצמו ולא ברשומה העדכנית של כל מכשיר. מכשיר פעיל שמחובר לאינטרנט עשוי\n'
+    +'להירשם מחדש בסנכרון הבא.')) return
+  const {data,error}=await db.from('devices').delete().in('id',dups).select('id')
+  if(error){
+    toast('שגיאה: '+error.message+(/(policy|permission|denied)/i.test(error.message)?' — צריך להריץ את מדיניות המחיקה (server/devices_delete_policy.sql)':''))
+    return
+  }
+  const n=(data||[]).length
+  if(n===0){
+    toast('המחיקה נחסמה (0 שורות). חסרה מדיניות מחיקה — הריצו את server/devices_delete_policy.sql ב-Supabase.','err')
+    return
+  }
+  toast('נוקו '+n+' כפילות ✓'+(n<dups.length?(' ('+(dups.length-n)+' לא נמחקו — ייתכן מכשיר פעיל שנרשם מחדש)'):''))
+  await loadDevices()
 }
 
 async function saveDevice(){
