@@ -381,11 +381,15 @@
         <div class="grpcard">
           <h3>🔌 אשף USB — כבל + דפדפן (Chrome / Edge)</h3>
           <ol class="prov-ol">
+            <li><b style="color:var(--block)">חובה קודם: הסירו את כל החשבונות מהמכשיר</b> (הגדרות → חשבונות → הסירו את חשבון Google וכל שאר החשבונות). <u>זה לא מוחק נתונים</u> — לא תמונות, לא קבצים, לא אפליקציות, רק מנתק חשבונות. בלי זה אנדרואיד חוסם את הפיכת המכשיר ל-Device Owner. אפשר להחזיר את החשבון אחרי ההקשחה.</li>
             <li>במכשיר: הגדרות → אודות → הקישו 7× על "מספר Build" → חזרה → <b>אפשרויות מפתחים → ניפוי USB</b> (מופעל).</li>
             <li>חברו את המכשיר בכבל למחשב. במכשיר יקפוץ <b>"לאשר ניפוי USB?"</b> → סמנו "תמיד" → <b>אישור</b>.</li>
             <li>לחצו <b>"חבר מכשיר"</b> ובחרו אותו מרשימת ה-USB של הדפדפן.</li>
-            <li>לחצו <b>"הקשח ונעל"</b> — יתקין את AM Kids האחרון, יגדיר Device Owner וינעל.</li>
+            <li>לחצו <b>"הקשח ונעל"</b> — יתקין את AM Kids האחרון, יגדיר Device Owner וינעל. <b>אין צורך באיפוס יצרן</b> — הנתונים של הלקוח נשמרים.</li>
           </ol>
+          <p class="cardnote" style="border-right:3px solid var(--block);padding-right:8px">
+            <b>שיאומי / MIUI ואנדרואיד 11+:</b> יש מכשירים שחוסמים את ההקשחה גם אחרי הסרת חשבונות (כי אשף ההתקנה הראשוני כבר הסתיים). אם קיבלתם שגיאה גם בלי חשבונות — במכשירים האלה בלבד נדרש איפוס יצרן, ואז הקצאה ב-QR.
+          </p>
           <div class="prov-actions">
             <button class="btn" id="usb-connect" style="width:auto" onclick="usbConnect()">🔌 חבר מכשיר</button>
             <button class="btn" id="usb-harden" style="width:auto;display:none" onclick="usbHarden()">🔒 הקשח ונעל</button>
@@ -1638,8 +1642,17 @@ async function usbSetOwnerOnly(){
   ulog('מגדיר Device Owner…','step')
   try{
     const out = await adbShell('dpm set-device-owner '+PROV.admin)
-    if(/Success/i.test(out)) ulog('✓ הוגדר Device Owner בהצלחה — האפליקציה תינעל לקיוסק','ok')
-    else ulog('תגובת המכשיר: '+String(out).trim(),'err')
+    if(/Success/i.test(out)){ ulog('✓ הוגדר Device Owner בהצלחה — האפליקציה תינעל לקיוסק','ok'); return }
+    const s = String(out)
+    // השגיאה הנפוצה ביותר: יש חשבונות/משתמשים על המכשיר. אנדרואיד חוסם Device
+    // Owner במצב הזה. מסבירים בדיוק מה לעשות במקום להציג פלט גולמי.
+    if(/account|user|already|not allowed|provision/i.test(s)){
+      ulog('❌ אנדרואיד חסם: יש עדיין חשבונות על המכשיר (או משתמש נוסף).','err')
+      ulog('פתרון: הגדרות → חשבונות → הסירו את כל החשבונות (כולל Google), ולחצו שוב "רק הפוך ל-Owner". זה לא מוחק נתונים.','')
+      ulog('אם אין חשבונות וזה עדיין נכשל (שיאומי/MIUI, אנדרואיד 11+): במכשיר הזה נדרש איפוס יצרן ואז הקצאה ב-QR.','')
+    } else {
+      ulog('תגובת המכשיר: '+s.trim(),'err')
+    }
   }catch(e){ ulog('כשל: '+(e && e.message || e),'err') }
 }
 
