@@ -1430,9 +1430,15 @@ async function deleteDevice(){
   if(!confirm('להסיר את "'+who+'" מהרשימה?\n\n'
     +'מוחק את הרשומה מהדשבורד בלבד — לא נוגע במכשיר עצמו.\n'
     +'אם המכשיר עדיין פעיל ומחובר לאינטרנט, הוא יירשם מחדש בסנכרון הבא.')) return
-  const {error}=await db.from('devices').delete().eq('id',CURRENT.id)
+  // מבקשים את השורות שנמחקו בפועל (return=representation), כדי לזהות מקרה שבו
+  // RLS חסם ומחק 0 שורות בשקט — אחרת הדשבורד היה מראה "הוסר" והשורה נשארת.
+  const {data,error}=await db.from('devices').delete().eq('id',CURRENT.id).select('id')
   if(error){
-    toast('שגיאה: '+error.message+(/(policy|permission|denied)/i.test(error.message)?' — צריך להריץ את מדיניות המחיקה (ראו הצ׳אט)':''))
+    toast('שגיאה: '+error.message+(/(policy|permission|denied)/i.test(error.message)?' — צריך להריץ את מדיניות המחיקה (server/devices_delete_policy.sql)':''))
+    return
+  }
+  if(!data || data.length===0){
+    toast('המחיקה נחסמה (0 שורות). חסרה מדיניות מחיקה — הריצו את server/devices_delete_policy.sql ב-Supabase.','err')
     return
   }
   toast('הוסר מהרשימה ✓')
