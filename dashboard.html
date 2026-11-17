@@ -1064,6 +1064,9 @@ async function callFn(name, body){
 }
 
 // ── DATA ──
+var LOCS={}
+// המיקום האחרון של מכשיר: מהטבלה device_locations, ואם אין (שרת לפני מיקום v2) מה-config.
+function locOf(d){ return (d && (LOCS[d.id] || (d.config||{}).last_location)) || null }
 async function loadDevices(){
   if(!db) return
   const [dev,subs] = await Promise.all([
@@ -1072,6 +1075,12 @@ async function loadDevices(){
   ])
   if(dev.error){ $('rows').innerHTML=`<tr><td colspan="11" class="empty">${esc(dev.error.message)}</td></tr>`; return }
   SUBS={}; (subs.data||[]).forEach(s=> SUBS[s.device_id]=s.status)
+  // מיקום v2: המיקום בטבלה נפרדת שהשרת מחזיר רק עם הרשאת "מיקום".
+  LOCS={}
+  try{
+    const loc=await db.from('device_locations').select('device_id,lat,lng,acc,battery,reason,at')
+    ;(loc.data||[]).forEach(l=> LOCS[l.device_id]=l)
+  }catch(_){}
   // ארכיון רך: config.archived=true → לא מוצג ברשימות (שום דבר לא נמחק).
   ARCHIVED = (dev.data||[]).filter(d=>(d.config||{}).archived===true)
   DEVICES = (dev.data||[]).filter(d=>(d.config||{}).archived!==true)
@@ -1167,7 +1176,7 @@ function render(){
   if(!slice.length){ rows.innerHTML='<tr><td colspan="11" class="empty">אין מכשירים</td></tr>'; $('pager').innerHTML=''; return }
   const DUPS=dupIds()
   rows.innerHTML=slice.map(d=>{
-    const cfg=d.config||{}, loc=cfg.last_location
+    const cfg=d.config||{}, loc=locOf(d)
     const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
       : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
     const locCell = (loc&&loc.lat!=null&&myPerm('location'))?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${locAgeCell(d)}</a>`:locAgeCell(d)
@@ -1526,7 +1535,7 @@ function renderDevices(){
   const rows=$('drows')
   if(!list.length){ rows.innerHTML='<tr><td colspan="10" class="empty">אין מכשירים</td></tr>'; return }
   rows.innerHTML=list.map(d=>{
-    const cfg=d.config||{}, loc=cfg.last_location, am=SUBS[d.id]==='active'
+    const cfg=d.config||{}, loc=locOf(d), am=SUBS[d.id]==='active'
     const st = d.status==='blocked'?'<span class="pill blocked">חסום</span>'
       : d.status==='pending'?'<span class="pill off">ממתין</span>':'<span class="pill active">פעיל</span>'
     const locCell=(loc&&loc.lat!=null&&myPerm('location'))?`<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">${locAgeCell(d)}</a>`:locAgeCell(d)
@@ -1583,7 +1592,7 @@ function openDetail(id){
   $('d-first').value=fdate(d.first_seen)
   $('d-last').value=fdate(d.last_seen)
   $('d-renew').value=cfg.renew||''
-  const loc=cfg.last_location
+  const loc=locOf(d)
   $('d-loc').value = (loc&&loc.lat!=null)?`${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)} (${fmt(loc.at)})`:'—'
   $('d-status').value=d.status||'active'
   $('d-lock').value=cfg.lock||'locked'
@@ -2520,7 +2529,7 @@ function daysSince(t){ return t ? (Date.now()-new Date(t).getTime())/DAY : null 
 function lastReport(d){
   // "דיווח אחרון" = המאוחר מבין הסנכרון והמיקום (כך גם בתוכנית שאושרה).
   const a = d.last_seen ? new Date(d.last_seen).getTime() : 0
-  const l = ((d.config||{}).last_location||{}).at
+  const l = (locOf(d)||{}).at
   const b = l ? new Date(l).getTime() : 0
   const m = Math.max(a,b); return m ? new Date(m).toISOString() : null
 }
@@ -2563,7 +2572,7 @@ function kioskPill(d){ const c=d.config||{}
   if(c.kiosk===false) return '<span class="pill p-bad">כבוי</span>'
   return '<span class="pill p-mute">לא ידוע</span>' }
 function locAgeCell(d){
-  const l=(d.config||{}).last_location
+  const l=locOf(d)
   if(!l || l.lat==null) return '<span style="color:var(--muted)">אין</span>'
   if(!myPerm('location')) return '<span style="color:var(--muted)">מוסתר</span>'
   const n=daysSince(l.at), stale=n!==null && n>1
@@ -2630,10 +2639,10 @@ function renderOverview(){
   if(noKiosk.length) A.push({c:'var(--block-dot)',i:ico['!'],t:noKiosk.length===active.length?'אף מכשיר לא נעול בקיוסק':'מכשירים שלא נעולים בקיוסק',
     p:noKiosk.length+' מתוך '+active.length+' מכשירים פעילים: הילד יכול לצאת מהאפליקציה.',a:'לנעול',go:"showPage('kiosk')"})
   if(myPerm('location')){
-    const staleLoc=active.filter(d=>{ const l=(d.config||{}).last_location; const s=daysSince(d.last_seen)
+    const staleLoc=active.filter(d=>{ const l=locOf(d); const s=daysSince(d.last_seen)
       return l && l.at && s!==null && (daysSince(l.at)-s)>2 })
     staleLoc.slice(0,2).forEach(d=>A.push({c:'var(--amber-dot)',i:ico.loc,t:'מיקום ישן',
-      p:esc(d.model||'')+' #'+d.serial+': המיקום האחרון מ-'+ago(d.config.last_location.at)+', למרות שהמכשיר דיווח '+ago(d.last_seen)+'.',a:'לפרטים',go:"showPage('location')"}))
+      p:esc(d.model||'')+' #'+d.serial+': המיקום האחרון מ-'+ago(locOf(d).at)+', למרות שהמכשיר דיווח '+ago(d.last_seen)+'.',a:'לפרטים',go:"showPage('location')"}))
   }
   if(LATEST_VER){
     const old=active.filter(d=>d.app_version && verCmp(d.app_version,LATEST_VER)<0)
@@ -2719,13 +2728,13 @@ function renderApprovals(){
 // ── מיקום ──
 function renderLocation(){
   const allowed=myPerm('location')
-  const list=DEVICES.slice().sort((a,b)=>new Date(((b.config||{}).last_location||{}).at||0)-new Date(((a.config||{}).last_location||{}).at||0))
+  const list=DEVICES.slice().sort((a,b)=>new Date((locOf(b)||{}).at||0)-new Date((locOf(a)||{}).at||0))
   const mapLink=l=> allowed && l && l.lat!=null ? '<a href="https://maps.google.com/?q='+l.lat+','+l.lng+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">פתח במפה ›</a>' : '—'
   $('loc-rows').innerHTML = !allowed ? '<tr class="nohover"><td colspan="5" class="empty">לחנות שלך אין הרשאת צפייה במיקום.</td></tr>'
-    : list.map(d=>{ const l=(d.config||{}).last_location
+    : list.map(d=>{ const l=locOf(d)
       return '<tr tabindex="0" onclick="openDetail(\''+d.id+'\')"><td>'+devCell(d)+'</td><td>'+locAgeCell(d)+(l&&l.at?' <small style="color:var(--muted)">('+fdate(l.at)+')</small>':'')+'</td><td>'+(l&&l.acc?Math.round(l.acc)+' מ׳':'—')+'</td><td>'+ago(d.last_seen)+'</td><td>'+mapLink(l)+'</td></tr>' }).join('')
   $('loc-mrows').innerHTML = !allowed ? '<div class="empty">לחנות שלך אין הרשאת צפייה במיקום.</div>'
-    : list.map(d=>{ const l=(d.config||{}).last_location
+    : list.map(d=>{ const l=locOf(d)
       return '<div class="dev" role="button" tabindex="0" onclick="openDetail(\''+d.id+'\')"><div class="i" style="background:'+avColor(d)+'">'+esc(initialOf(d))+'</div><div><b>'+devName(d)+'</b><small>'+mapLink(l)+'</small></div><div class="meta">'+locAgeCell(d)+'</div></div>' }).join('')
 }
 
