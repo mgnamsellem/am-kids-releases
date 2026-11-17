@@ -783,7 +783,7 @@
             <select id="d-region"><option value="">—</option><option>ישראל</option><option>אירופה</option><option>ארה״ב</option><option>חו״ל</option></select>
           </div>
           <div class="f"><label>הערות</label><input id="d-notes"></div>
-          <div class="f ro"><label>מזהה לקוח</label><input id="d-hash" disabled></div>
+          <!-- 18/11: device_hash הוסר מהדשבורד (סוד המכשיר) -->
         </div>
       </div>
 
@@ -1064,19 +1064,25 @@ async function callFn(name, body){
 }
 
 // ── DATA ──
-var LOCS={}
+var LOCS={}, PWSET=null
 // המיקום האחרון של מכשיר: מהטבלה device_locations, ואם אין (שרת לפני מיקום v2) מה-config.
 function locOf(d){ return (d && (LOCS[d.id] || (d.config||{}).last_location)) || null }
 async function loadDevices(){
   if(!db) return
   const [dev,subs] = await Promise.all([
-    db.from('devices').select('*').order('last_seen',{ascending:false}).limit(1000),
+    // 18/11: בלי עמודות הסוד (device_hash, license_token, hw_anchor, auth_uid). הדשבורד
+    // לא צריך אותן, ועם device_hash אפשר לדווח מיקום או לקרוא אותות שיחה בשם המכשיר.
+    db.from('devices').select('id,model,android_version,app_version,operator_id,customer_name,customer_phone,status,config,first_seen,last_seen,created_at,serial').order('last_seen',{ascending:false}).limit(1000),
     db.from('subscriptions').select('device_id,feature,status').eq('feature','am_message')
   ])
   if(dev.error){ $('rows').innerHTML=`<tr><td colspan="11" class="empty">${esc(dev.error.message)}</td></tr>`; return }
   SUBS={}; (subs.data||[]).forEach(s=> SUBS[s.device_id]=s.status)
   // מיקום v2: המיקום בטבלה נפרדת שהשרת מחזיר רק עם הרשאת "מיקום".
   LOCS={}
+  try{
+    const pw=await db.rpc('devices_with_password')
+    PWSET = pw.error ? null : new Set((pw.data||[]).map(x=> typeof x==='string'?x:(x.devices_with_password||Object.values(x)[0])))
+  }catch(_){ PWSET=null }
   try{
     const loc=await db.from('device_locations').select('device_id,lat,lng,acc,battery,reason,at')
     ;(loc.data||[]).forEach(l=> LOCS[l.device_id]=l)
@@ -1128,7 +1134,7 @@ function filtered(){
     (d.customer_name||'').toLowerCase().includes(q) ||
     (d.customer_phone||'').toLowerCase().includes(q) ||
     (d.model||'').toLowerCase().includes(q) ||
-    (d.device_hash||'').toLowerCase().includes(q))
+    false)
 }
 function avatarColor(s){var g=[['#6C4BE0','#4A32A8'],['#1FA971','#3fd694'],['#EC2C8F','#ff6fb4'],['#E8A21C','#F6C453'],['#2C8BF0','#66B4FF'],['#8A38F0','#B579FF']];var h=0;s=String(s||'');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;var c=g[h%g.length];return'linear-gradient(140deg,'+c[0]+','+c[1]+')'}
 
@@ -1585,7 +1591,6 @@ function openDetail(id){
   $('d-payment').value=cfg.payment||''
   $('d-region').value=cfg.region||''
   $('d-notes').value=cfg.notes||''
-  $('d-hash').value=d.device_hash||''
   $('d-model').value=d.model||''
   $('d-android').value=d.android_version||''
   $('d-appver').value=d.app_version||''
@@ -2638,6 +2643,10 @@ function renderOverview(){
   const noKiosk=active.filter(d=>(d.config||{}).kiosk!==true)
   if(noKiosk.length) A.push({c:'var(--block-dot)',i:ico['!'],t:noKiosk.length===active.length?'אף מכשיר לא נעול בקיוסק':'מכשירים שלא נעולים בקיוסק',
     p:noKiosk.length+' מתוך '+active.length+' מכשירים פעילים: הילד יכול לצאת מהאפליקציה.',a:'לנעול',go:"showPage('kiosk')"})
+  // 18/11: מכשיר בלי סיסמת חשבון מאבד חברים והיסטוריה בהתקנה מחדש.
+  const noPw=active.filter(d=>PWSET && !PWSET.has(d.id))
+  if(noPw.length) A.push({c:'var(--amber-dot)',i:ico['!'],t:'מכשירים בלי סיסמת חשבון',
+    p:noPw.length+' מתוך '+active.length+': בהתקנה מחדש יאבדו החברים וההיסטוריה. ההורה קובע סיסמה בהגדרות הורים, "חשבון להתחברות מחדש".'})
   if(myPerm('location')){
     const staleLoc=active.filter(d=>{ const l=locOf(d); const s=daysSince(d.last_seen)
       return l && l.at && s!==null && (daysSince(l.at)-s)>2 })
@@ -2656,7 +2665,7 @@ function renderOverview(){
       p:x.n+' מכשירים שייכים לחנות '+esc(x.s.code)+', ולחנות אין אימייל כניסה.',a:'לסדר',go:"showPage('stores');editStore('"+x.s.id+"')"}))
   }
   $('ov-alerts').innerHTML = A.length ? A.map(x=>'<div class="alert"><div class="b" style="background:'+x.c+'">'+x.i+'</div><div><b>'+x.t+'</b><p>'+x.p+'</p></div>'+
-      '<button class="act" onclick="'+x.go+'">'+x.a+' ›</button></div>').join('')
+      (x.go?'<button class="act" onclick="'+x.go+'">'+x.a+' ›</button>':'')+'</div>').join('')
     : '<div class="alert okrow"><div class="b">'+ico.ok+'</div><div><b>הכל תקין</b><p>אין כרגע מה לטפל בו.</p></div></div>'
 
   // אישורים ממתינים
